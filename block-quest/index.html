@@ -198,6 +198,11 @@ button { font: inherit; color: inherit; }
 .pal i svg { width: 100%; height: 100%; }
 .pal[aria-pressed="true"] { box-shadow: inset 0 0 0 4px var(--gold), 0 0 0 3px var(--gold); transform: translateY(-3px); }
 
+.lvl.endless { grid-column: span 2; aspect-ratio: auto; min-height: 84px; flex-direction: row; gap: 12px; }
+.lvl .inf { font-size: 2.6rem; line-height: 1; color: var(--gold); }
+.lvl .small { font-size: 1rem; }
+.lvl.endless svg.lock { width: 24px; height: 24px; }
+
 /* builder's yard */
 .views { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .view { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border-radius: 6px; background: var(--panel); box-shadow: inset 0 0 0 3px var(--vc); }
@@ -438,7 +443,7 @@ body.farm { background: var(--sky); }
 
   // ---------- saving ----------
   const SAVE_KEY = 'block-quest-v1';
-  let save = { mines: [], hut: [], farm: [], yard: [], market: [], minesV: 2 };
+  let save = { mines: [], hut: [], farm: [], yard: [], market: [], endless: {}, minesV: 2 };
   try {
     const old = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
     if (old.minesV !== 2) delete old.mines;   // the mines were rebuilt harder, so start them fresh
@@ -500,20 +505,38 @@ body.farm { background: var(--sky); }
       b.addEventListener('click', () => startLevel(key, i));
       wrap.appendChild(b);
     }
+    const finished = save[key].filter(Boolean).length >= a.count;
+    const e = el('button', 'lvl endless');
+    e.type = 'button'; e.disabled = !finished;
+    const solved = save.endless[key] || 0;
+    e.innerHTML = finished ? `<span class="inf">&infin;</span><span class="small">${solved} solved</span>` : LOCK + '<span class="small">Endless</span>';
+    e.setAttribute('aria-label', finished ? 'Endless puzzles, ' + solved + ' solved' : 'Endless puzzles, locked until every level is done');
+    e.addEventListener('click', () => startEndless(key));
+    wrap.appendChild(e);
+    $('areaBlurb').textContent = a.blurb + (firstOpen > 0 ? ' Replay a level for a brand-new puzzle!' : '');
     showScreen('levelScreen');
   }
 
   let cleanup = null;
-  function startLevel(key, lv) {
+  // The first time you play a level you get the hand-picked version (variant 0).
+  // Replays and Endless get a fresh puzzle at the same difficulty; "try again" keeps the same one.
+  const freshVariant = () => 1 + Math.floor(Math.random() * 1e6);
+  function startLevel(key, lv, opts = {}) {
     if (cleanup) { cleanup(); cleanup = null; }
-    current = { area: key, lv };
+    const variant = opts.variant ?? (opts.endless || save[key][lv] ? freshVariant() : 0);
+    current = { area: key, lv, variant, endless: !!opts.endless };
     document.body.className = key;
-    $('title').textContent = AREAS[key].name + ' · ' + (lv + 1);
+    $('title').textContent = AREAS[key].name + ' · ' + (opts.endless ? 'Endless' : lv + 1);
     $('back').hidden = false; $('hear').hidden = false;
     $('stage').innerHTML = ''; $('status').innerHTML = ''; $('actions').innerHTML = ''; $('msg').textContent = '';
     showScreen('playScreen');
-    AREAS[key].build(lv);
+    AREAS[key].build(lv, variant);
     setTimeout(() => say(speech), 350);
+  }
+
+  function startEndless(key) {
+    const n = AREAS[key].count;
+    startLevel(key, n - 3 + Math.floor(Math.random() * 3), { endless: true });   // the hardest few levels, new every time
   }
 
   function setQ(text, spoken) { $('q').textContent = text; speech = spoken || text; }
@@ -525,19 +548,33 @@ body.farm { background: var(--sky); }
   }
 
   function win(stars, text) {
-    const { area, lv } = current;
+    const { area, lv, variant, endless } = current;
+    const a = AREAS[area];
+    const btns = $('winBtns'); btns.innerHTML = '';
+    const close = () => { $('overlay').hidden = true; };
+    const mk = (label, fn, cls) => { const b = el('button', 'btn ' + (cls || ''), label); b.type = 'button'; b.addEventListener('click', () => { close(); fn(); }); btns.appendChild(b); return b; };
+    if (endless) {
+      save.endless[area] = (save.endless[area] || 0) + 1;
+      persist();
+      tune([523, 659, 784, 1047]);
+      $('winArt').innerHTML = `<div class="bigstars">${starsHtml(stars)}</div>`;
+      $('winTitle').textContent = 'Solved!';
+      $('winText').textContent = (text ? text + ' ' : '') + 'Endless puzzles solved: ' + save.endless[area] + '.';
+      mk('Back', () => showLevels(area), 'alt');
+      const nx = mk('Next puzzle', () => startEndless(area));
+      $('overlay').hidden = false; nx.focus();
+      say('Solved! ' + (text || '') + ' That makes ' + save.endless[area] + ' endless puzzles.');
+      return;
+    }
     save[area][lv] = Math.max(save[area][lv] || 0, stars);
     persist();
-    const a = AREAS[area];
     const areaDone = save[area].filter(Boolean).length === a.count && lv === a.count - 1;
     tune(stars === 3 ? [523, 659, 784, 1047, 1319] : [523, 659, 784, 1047]);
     $('winArt').innerHTML = areaDone ? TROPHY : `<div class="bigstars">${starsHtml(stars)}</div>`;
     $('winTitle').textContent = areaDone ? 'You finished ' + a.name + '!' : stars === 3 ? 'Perfect!' : 'Level complete!';
     $('winText').textContent = text || '';
-    const btns = $('winBtns'); btns.innerHTML = '';
-    const close = () => { $('overlay').hidden = true; };
-    const mk = (label, fn, cls) => { const b = el('button', 'btn ' + (cls || ''), label); b.type = 'button'; b.addEventListener('click', () => { close(); fn(); }); btns.appendChild(b); return b; };
-    if (stars < 3) mk('Try for 3 stars', () => startLevel(area, lv), 'alt');
+    if (stars < 3) mk('Try for 3 stars', () => startLevel(area, lv, { variant }), 'alt');
+    mk('New puzzle', () => startLevel(area, lv, { variant: freshVariant() }), 'alt');
     let first;
     if (lv + 1 < a.count) first = mk('Next level', () => startLevel(area, lv + 1));
     else first = mk('Back to map', showMap);
@@ -603,12 +640,12 @@ body.farm { background: var(--sky); }
     for (const order of perms(gems)) { const r = routeCost(grid, W, H, hits, from, order); if (r.cost < best.cost) best = { ...r, order }; }
     return best;
   }
-  function makeDig(lv) {
+  function makeDig(lv, variant = 0) {
     const W = 8, H = 6 + Math.min(2, Math.floor(lv / 4));
     const nGems = lv <= 1 ? 1 : lv <= 5 ? 2 : 3;
     const slack = lv <= 2 ? 2 : lv <= 5 ? 1 : 0;
     for (let seed = 0; seed < 3000; seed++) {
-      const r = rng(2000 + lv * 131 + seed * 17);
+      const r = rng(2000 + lv * 131 + seed * 17 + variant * 7919);
       const stoneP = .3 + lv * .02, hardP = .12 + lv * .03;
       const grid = [];
       for (let y = 0; y < H; y++) {
@@ -664,8 +701,10 @@ body.farm { background: var(--sky); }
     throw new Error('no dig level ' + lv);
   }
 
-  function buildDig(lv) {
-    const L = makeDig(lv);
+  function buildDig(lv, variant = 0) {
+    let L;
+    try { L = makeDig(lv, variant); } catch (_) { L = makeDig(lv, 0); }
+    window.__bq.cur = L;
     const { W, H, target } = L;
     let grid, hits, pos, energy, used, hinted, path, busy, left;
     const board = el('div', 'board');
@@ -803,9 +842,15 @@ body.farm { background: var(--sky); }
   const pieceBg = p => p && p !== 'stick' ? `background-image:var(--t-${MATS[p].tex})` : '';
   const recipeOf = (shape, mat) => SHAPES[shape].map(r => [...r].map(ch => ch === 'M' ? mat : ch === 'S' ? 'stick' : null));
 
-  function makeCraft(lv) {
-    const r = rng(5000 + lv * 31);
+  function makeCraft(lv, variant = 0) {
+    const r = rng(5000 + lv * 31 + variant * 7919);
     const shapes = Object.keys(SHAPES), mats = Object.keys(MATS);
+    if (variant && lv <= 3) {
+      // a fresh tool and material, same kind of puzzle
+      const shape = shapes[Math.floor(r() * shapes.length)], mat = mats[Math.floor(r() * mats.length)];
+      const extra = shuffleWith(r, mats.filter(m => m !== mat)).slice(0, lv <= 1 ? lv : 2);
+      return { mode: lv <= 1 ? 'copy' : 'look', shape, mat, examples: [], palette: shuffleWith(r, [mat, ...extra]).concat('stick'), prefill: lv === 2 };
+    }
     if (lv <= 1) return { mode: 'copy', shape: ['shovel', 'pickaxe'][lv], mat: ['wood', 'stone'][lv], examples: [], palette: lv === 0 ? ['wood', 'stick'] : ['stone', 'wood', 'stick'] };
     if (lv <= 3) return { mode: 'look', shape: ['sword', 'axe'][lv - 2], mat: ['iron', 'gem'][lv - 2], examples: [], palette: ['iron', 'gem', 'stone', 'stick'], prefill: lv === 2 };
     const shape = shapes[Math.floor(r() * shapes.length)];
@@ -835,8 +880,9 @@ body.farm { background: var(--sky); }
     return card;
   }
 
-  function buildCraft(lv) {
-    const P = makeCraft(lv);
+  function buildCraft(lv, variant = 0) {
+    const P = makeCraft(lv, variant);
+    window.__bq.cur = P;
     const target = recipeOf(P.shape, P.mat);
     let grid, selected = P.palette[0], tries = 0, done = false;
     const name = itemName(P.shape, P.mat);
@@ -930,6 +976,8 @@ body.farm { background: var(--sky); }
     { k: 3, map: ['...S....', 'c.......', '=####f.#', '.#####.#', '.....c..', '##c.#=##', '##=#####'] },
     { k: 3, map: ['S......S', '........', '.....cc.', 'ff##.==c', '#####.#=', '.###.###', '########'] }
   ];
+  // Extra solver-checked maps for each level (same blocks needed, same hazards). Rows are joined with '/'.
+  const FARM_BANK = [["S......./.c....../.=####../###.####/..#####./...##.##/########","...S..../......../......../......../.......c/####.##=/########","....S.../.c....../.=##.###/.####.##/####.###/......../########",".S....../......../..#####c/.#####.=/...###../##..###./########","...S..../......../.#####.#/......../...c..../..#=##.#/########",".....S../....c.../.###=..#/..###..#/......../..#####./########","......S./.c....../.=####../..####.#/......../......../########",".......S/......../......../###c.###/.##=..##/...####./########",".......S/....c.../###.=##./#####.##/......../##..##../########","...S..../c......./=##..###/...####./......../......../########"],[".....S../.....c../...##=f#/..##..##/.####.##/.#####.#/########","S......./......../..##..##/...####./......../.c.f..../#=######","...S..../...c..../...=###./...#####/......../.f##.##./########","S......./......../......../......../.c#####./f=##.###/########","......S./.c....../.=##.###/..##.###/....f.../..#####./########",".......S/......../......../c......./=####.##/#####.f#/########","...S..../......../.f.###../.#####.#/......c./##.###=#/########","...S..../......../...##f.#/..c#####/.#=#..##/.###.##./########","...S..../.c....../#=#.####/.....f../.#####.#/......../########","...S..../......../.f....../.####.##/......../.c....../#=######"],["S......./......../......../...###.#/.....c../.##.#=#./########","...S..../c......./=#..####/..##..##/......../..####.#/########",".....S../c......./=###..##/..##.###/..###..#/.####..#/########",".......S/......../.###..##/..####../...#####/....c.../####=###",".....S../......../####..##/..c...../..=#..##/#####..#/########","....S.../......../......../.##..###/...#####/.....c../#####=##",".....S../.c....../#=#..###/......../...###../.##..###/########","S......./......../......../..####c#/.##.##=./......../########","....S.../c......./=#..###./##.##..#/.##.###./......../########","......S./......../.###..##/c#####../=##..##./.##..##./########"],["....S.../....c..c/.###=..=/.####..#/..#####./......../########","S......./...c...c/.##=#.#=/......../##..####/##..###./########","....S.../.......c/.###..#=/.####.##/......../.......c/#######=","S......./....c.../..##=c##/###..=##/......../###..##./########","...S..../.c....c./.=##..=#/...##.##/...##..#/##..####/########","......S./......../...c..../###=#.c#/##..##=./...####./########","S......./....c..c/.###=#.=/...###../......../##..####/########","S......./..c....c/.#=##.#=/.###..##/###.####/..#####./########",".......S/......../...c..../...=#..#/......../.##.c###/####=###",".....S../cc....../==##..##/..##.###/..###..#/.####..#/########"],[".......S/..c.c.../##=.=##./......../......../.....f../########","...S..../.c..c.../#=..=##./###..###/###f.###/.#####.#/########","...S..../..f...../..###..#/......../......../..c....c/##=####=",".S....../..c...../..=####./..###.##/...###.#/c.f###.#/=#######","....S.../.......c/..###..=/......../.c##.f##/.=#..##./########","S......./.c....../.=#.####/...c..../f##=#.##/##..###./########","..S...../......../.....c../..##.=##/c.f...../=###..##/########","....S.../.c....c./#=#..#=#/##.f####/.#####../##.###.#/########",".S....../...c..../..#=.##./......../.......c/.##f###=/########","....S.../...c..../...=####/..f#####/.####.##/......c./######=#"],["......S./......../...c..ff/..#=#.##/..###..#/.c###.##/#=######","S......./......../......../..####c#/.##.##=./..c.ff../##=#####",".......S/...cc.../...==#../......../..###.##/...ff.../########","....S.../.f.c...c/###=#..=/##.##..#/.....f../.##.####/########"],[".S....../.c.....c/.=##..#=/.c.##.##/.=###..#/..f...../########","...S..../......../..c...c./##=..#=#/...c..../.f#=##.#/########","...S..../c......./=####f.#/.#####.#/.....c../##c.#=##/##=#####"],["...SS.../......../....c.f./...#=##./.....c../c..##=#f/=#######","S......S/......../.....cc./ff##.==c/#####.#=/.###.###/########"]];
   function waterSim(rows) {
     const H = rows.length, W = rows[0].length;
     const solid = (x, y) => y >= H ? true : (x < 0 || x >= W) ? true : '#=B'.includes(rows[y][x]);
@@ -967,8 +1015,12 @@ body.farm { background: var(--sky); }
     return sols;
   }
 
-  function buildWater(lv) {
-    const L = WATER_LEVELS[lv];
+  function buildWater(lv, variant = 0) {
+    const maps = [WATER_LEVELS[lv].map, ...FARM_BANK[lv].map(m => m.split('/'))];
+    let map = maps[variant % maps.length];
+    if (variant && Math.floor(variant / maps.length) % 2) map = map.map(r => [...r].reverse().join(''));   // mirror for more variety
+    const L = { k: WATER_LEVELS[lv].k, map };
+    window.__bq.cur = L;
     const H = L.map.length, W = L.map[0].length;
     let placed = new Set(), wet = new Set(), pours = 0, running = false, hinted = false, timers = [];
     const board = el('div', 'board');
@@ -1099,8 +1151,8 @@ body.farm { background: var(--sky); }
     if (t && a.top.flat().join() !== b.top.flat().join()) return false;
     return true;
   }
-  function makeBlueprint(lv) {
-    const r = rng(9000 + lv * 41);
+  function makeBlueprint(lv, variant = 0) {
+    const r = rng(9000 + lv * 41 + variant * 7919);
     const N = lv === 0 ? 2 : lv >= 8 ? 4 : 3;
     const maxH = lv <= 2 ? 2 : 3;
     const mode = lv <= 1 ? 'picture' : lv === 2 ? 'fronttop' : lv === 6 ? 'fewest' : lv === 7 ? 'fewest2' : lv === 9 ? 'most' : 'three';
@@ -1167,8 +1219,10 @@ body.farm { background: var(--sky); }
     return wrap;
   }
 
-  function buildYard(lv) {
-    const B = makeBlueprint(lv);
+  function buildYard(lv, variant = 0) {
+    let B;
+    try { B = makeBlueprint(lv, variant); } catch (_) { B = makeBlueprint(lv, 0); }
+    window.__bq.cur = B;
     const { N, maxH, v, mode } = B;
     let h = Array.from({ length: N }, () => Array(N).fill(0)), tries = 0, done = false;
     const shown = { picture: [], fronttop: ['front', 'top'], three: ['front', 'side', 'top'], fewest: ['front', 'side', 'top'], fewest2: ['front', 'side'], most: ['front', 'side', 'top'] }[mode];
@@ -1266,18 +1320,9 @@ body.farm { background: var(--sky); }
     cake: px(['...r....', '..wwww..', '.wwwwww.', 'pppppppp', 'cccccccc', 'pppppppp', 'cccccccc', '........'], { r: '#ff5d73', w: '#fff2d8', p: '#f9a8d4', c: '#c08a4e' }),
     map: px(['yyyyyyyy', 'y..r...y', 'y.r.r..y', 'y...r..y', 'y.gg..xy', 'y.gg...y', 'yyyyyyyy', '........'], { y: '#e8d8a8', r: '#c0392b', g: '#5fb34a', x: '#c0392b' })
   };
-  const MARKET = [
-    { start: { wheat: 4 }, goal: { lantern: 1 }, trades: [[{ wheat: 2 }, { coin: 1 }], [{ coin: 2 }, { lantern: 1 }]] },
-    { start: { carrot: 3, wheat: 2 }, goal: { boots: 1 }, trades: [[{ carrot: 3 }, { coin: 1 }], [{ wheat: 2 }, { coin: 1 }], [{ coin: 2 }, { boots: 1 }]] },
-    { start: { wheat: 6 }, goal: { lantern: 1 }, trades: [[{ wheat: 2 }, { fish: 1 }], [{ wheat: 3 }, { coin: 1 }], [{ coin: 1 }, { carrot: 2 }], [{ fish: 1, coin: 1 }, { lantern: 1 }]] },
-    { start: { wheat: 5 }, goal: { boots: 1 }, trades: [[{ wheat: 2 }, { coin: 1 }], [{ wheat: 3 }, { fish: 1 }], [{ fish: 1 }, { coin: 2 }], [{ coin: 3 }, { boots: 1 }]] },
-    { start: { fish: 1, carrot: 2 }, goal: { cake: 1 }, trades: [[{ fish: 1 }, { wheat: 3 }], [{ carrot: 2 }, { egg: 1 }], [{ wheat: 3 }, { coin: 1 }], [{ egg: 1, wheat: 3 }, { cake: 1 }]] },
-    { start: { wheat: 5, fish: 1 }, goal: { map: 1 }, trades: [[{ wheat: 2 }, { coin: 1 }], [{ fish: 1 }, { egg: 2 }], [{ egg: 2 }, { coin: 1 }], [{ coin: 1, wheat: 1 }, { gem: 1 }], [{ coin: 1 }, { carrot: 2 }], [{ coin: 2, gem: 1 }, { map: 1 }]] },
-    { start: { wheat: 6, wool: 2 }, goal: { lantern: 1, boots: 1 }, trades: [[{ wheat: 3 }, { coin: 1 }], [{ wool: 1 }, { coin: 1 }], [{ wheat: 2 }, { fish: 1 }], [{ fish: 1, coin: 1 }, { lantern: 1 }], [{ coin: 2 }, { boots: 1 }], [{ wool: 2 }, { egg: 1 }]] },
-    { start: { carrot: 6, egg: 1 }, goal: { cake: 1 }, trades: [[{ carrot: 2 }, { wheat: 1 }], [{ carrot: 3 }, { coin: 1 }], [{ coin: 1 }, { wheat: 2 }], [{ egg: 1, wheat: 1 }, { gem: 1 }], [{ wheat: 2 }, { egg: 1 }], [{ gem: 1, egg: 1, wheat: 1 }, { cake: 1 }]] },
-    { start: { fish: 3, wheat: 4 }, goal: { map: 1, lantern: 1 }, trades: [[{ fish: 1 }, { coin: 1 }], [{ wheat: 2 }, { coin: 1 }], [{ coin: 2 }, { gem: 1 }], [{ gem: 1, fish: 1 }, { map: 1 }], [{ coin: 1, wheat: 1 }, { lantern: 1 }], [{ fish: 2 }, { wool: 1 }], [{ wool: 1 }, { coin: 1 }]] },
-    { start: { wool: 3, carrot: 5 }, goal: { boots: 1, cake: 1 }, trades: [[{ wool: 1 }, { coin: 1 }], [{ carrot: 2 }, { egg: 1 }], [{ coin: 1, carrot: 1 }, { wheat: 2 }], [{ egg: 1, wheat: 2 }, { cake: 1 }], [{ coin: 2, egg: 1 }, { boots: 1 }], [{ wool: 2 }, { gem: 1 }], [{ gem: 1 }, { coin: 1 }], [{ carrot: 1 }, { wheat: 1 }]] }
-  ];
+  // Each level: the hand-made original first, then solver-checked variants (same difficulty, different numbers).
+  const MARKET_BANK = [[{"start":{"wheat":4},"goal":{"lantern":1},"trades":[[{"wheat":2},{"coin":1}],[{"coin":2},{"lantern":1}]]},{"start":{"wheat":4},"goal":{"lantern":1},"trades":[[{"wheat":1},{"coin":1}],[{"coin":2},{"lantern":1}]]},{"start":{"wheat":4},"goal":{"lantern":1},"trades":[[{"wheat":1},{"coin":1}],[{"coin":3},{"lantern":1}]]},{"start":{"wheat":5},"goal":{"lantern":1},"trades":[[{"wheat":2},{"coin":1}],[{"coin":2},{"lantern":1}]]},{"start":{"wheat":3},"goal":{"lantern":1},"trades":[[{"wheat":1},{"coin":1}],[{"coin":2},{"lantern":1}]]},{"start":{"wheat":6},"goal":{"lantern":1},"trades":[[{"wheat":3},{"coin":1}],[{"coin":2},{"lantern":1}]]},{"start":{"wheat":4},"goal":{"lantern":1},"trades":[[{"wheat":2},{"coin":2}],[{"coin":3},{"lantern":1}]]},{"start":{"wheat":5},"goal":{"lantern":1},"trades":[[{"wheat":1},{"coin":1}],[{"coin":2},{"lantern":1}]]}],[{"start":{"carrot":3,"wheat":2},"goal":{"boots":1},"trades":[[{"carrot":3},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"boots":1}]]},{"start":{"carrot":3,"wheat":3},"goal":{"boots":1},"trades":[[{"carrot":3},{"coin":1}],[{"wheat":1},{"coin":1}],[{"coin":2},{"boots":1}]]},{"start":{"carrot":3,"wheat":2},"goal":{"boots":1},"trades":[[{"carrot":3},{"coin":1}],[{"wheat":1},{"coin":2}],[{"coin":3},{"boots":1}]]},{"start":{"carrot":4,"wheat":3},"goal":{"boots":1},"trades":[[{"carrot":3},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"boots":1}]]},{"start":{"carrot":3,"wheat":2},"goal":{"boots":1},"trades":[[{"carrot":2},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"boots":1}]]},{"start":{"carrot":3,"wheat":3},"goal":{"boots":1},"trades":[[{"carrot":3},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"boots":1}]]},{"start":{"carrot":4,"wheat":2},"goal":{"boots":1},"trades":[[{"carrot":3},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"boots":1}]]},{"start":{"carrot":3,"wheat":2},"goal":{"boots":1},"trades":[[{"carrot":3},{"coin":1}],[{"wheat":1},{"coin":1}],[{"coin":3},{"boots":1}]]}],[{"start":{"wheat":6},"goal":{"lantern":1},"trades":[[{"wheat":2},{"fish":1}],[{"wheat":3},{"coin":1}],[{"coin":1},{"carrot":2}],[{"fish":1,"coin":1},{"lantern":1}]]},{"start":{"wheat":6},"goal":{"lantern":1},"trades":[[{"wheat":2},{"fish":1}],[{"wheat":3},{"coin":2}],[{"coin":1},{"carrot":3}],[{"fish":1,"coin":1},{"lantern":1}]]},{"start":{"wheat":6},"goal":{"lantern":1},"trades":[[{"wheat":2},{"fish":1}],[{"wheat":3},{"coin":1}],[{"coin":2},{"carrot":3}],[{"fish":1,"coin":1},{"lantern":1}]]},{"start":{"wheat":6},"goal":{"lantern":1},"trades":[[{"wheat":2},{"fish":2}],[{"wheat":3},{"coin":1}],[{"coin":1},{"carrot":2}],[{"fish":1,"coin":1},{"lantern":1}]]},{"start":{"wheat":6},"goal":{"lantern":1},"trades":[[{"wheat":2},{"fish":1}],[{"wheat":2},{"coin":1}],[{"coin":1},{"carrot":2}],[{"fish":1,"coin":1},{"lantern":1}]]},{"start":{"wheat":6},"goal":{"lantern":1},"trades":[[{"wheat":1},{"fish":1}],[{"wheat":3},{"coin":1}],[{"coin":1},{"carrot":2}],[{"fish":1,"coin":1},{"lantern":1}]]},{"start":{"wheat":6},"goal":{"lantern":1},"trades":[[{"wheat":2},{"fish":1}],[{"wheat":3},{"coin":1}],[{"coin":1},{"carrot":3}],[{"fish":1,"coin":1},{"lantern":1}]]},{"start":{"wheat":5},"goal":{"lantern":1},"trades":[[{"wheat":2},{"fish":1}],[{"wheat":2},{"coin":1}],[{"coin":1},{"carrot":2}],[{"fish":1,"coin":1},{"lantern":1}]]}],[{"start":{"wheat":5},"goal":{"boots":1},"trades":[[{"wheat":2},{"coin":1}],[{"wheat":3},{"fish":1}],[{"fish":1},{"coin":2}],[{"coin":3},{"boots":1}]]},{"start":{"wheat":5},"goal":{"boots":1},"trades":[[{"wheat":2},{"coin":1}],[{"wheat":3},{"fish":2}],[{"fish":1},{"coin":2}],[{"coin":3},{"boots":1}]]},{"start":{"wheat":5},"goal":{"boots":1},"trades":[[{"wheat":2},{"coin":1}],[{"wheat":3},{"fish":3}],[{"fish":1},{"coin":2}],[{"coin":3},{"boots":1}]]},{"start":{"wheat":5},"goal":{"boots":1},"trades":[[{"wheat":2},{"coin":1}],[{"wheat":3},{"fish":2}],[{"fish":1},{"coin":1}],[{"coin":3},{"boots":1}]]},{"start":{"wheat":6},"goal":{"boots":1},"trades":[[{"wheat":3},{"coin":1}],[{"wheat":3},{"fish":2}],[{"fish":1},{"coin":2}],[{"coin":3},{"boots":1}]]},{"start":{"wheat":5},"goal":{"boots":1},"trades":[[{"wheat":2},{"coin":1}],[{"wheat":2},{"fish":2}],[{"fish":1},{"coin":2}],[{"coin":3},{"boots":1}]]},{"start":{"wheat":5},"goal":{"boots":1},"trades":[[{"wheat":2},{"coin":1}],[{"wheat":2},{"fish":1}],[{"fish":1},{"coin":2}],[{"coin":3},{"boots":1}]]},{"start":{"wheat":6},"goal":{"boots":1},"trades":[[{"wheat":3},{"coin":1}],[{"wheat":3},{"fish":1}],[{"fish":1},{"coin":2}],[{"coin":3},{"boots":1}]]}],[{"start":{"fish":1,"carrot":2},"goal":{"cake":1},"trades":[[{"fish":1},{"wheat":3}],[{"carrot":2},{"egg":1}],[{"wheat":3},{"coin":1}],[{"egg":1,"wheat":3},{"cake":1}]]},{"start":{"fish":2,"carrot":2},"goal":{"cake":1},"trades":[[{"fish":1},{"wheat":3}],[{"carrot":2},{"egg":1}],[{"wheat":3},{"coin":2}],[{"egg":1,"wheat":3},{"cake":1}]]},{"start":{"fish":1,"carrot":3},"goal":{"cake":1},"trades":[[{"fish":1},{"wheat":3}],[{"carrot":2},{"egg":1}],[{"wheat":3},{"coin":1}],[{"egg":1,"wheat":3},{"cake":1}]]},{"start":{"fish":1,"carrot":2},"goal":{"cake":1},"trades":[[{"fish":1},{"wheat":3}],[{"carrot":1},{"egg":1}],[{"wheat":3},{"coin":1}],[{"egg":1,"wheat":3},{"cake":1}]]},{"start":{"fish":1,"carrot":2},"goal":{"cake":1},"trades":[[{"fish":1},{"wheat":3}],[{"carrot":2},{"egg":1}],[{"wheat":3},{"coin":1}],[{"egg":1,"wheat":2},{"cake":1}]]},{"start":{"fish":1,"carrot":2},"goal":{"cake":1},"trades":[[{"fish":1},{"wheat":3}],[{"carrot":2},{"egg":2}],[{"wheat":3},{"coin":1}],[{"egg":1,"wheat":3},{"cake":1}]]},{"start":{"fish":1,"carrot":2},"goal":{"cake":1},"trades":[[{"fish":1},{"wheat":4}],[{"carrot":2},{"egg":1}],[{"wheat":3},{"coin":1}],[{"egg":1,"wheat":3},{"cake":1}]]},{"start":{"fish":1,"carrot":2},"goal":{"cake":1},"trades":[[{"fish":1},{"wheat":3}],[{"carrot":1},{"egg":1}],[{"wheat":3},{"coin":1}],[{"egg":1,"wheat":2},{"cake":1}]]}],[{"start":{"wheat":5,"fish":1},"goal":{"map":1},"trades":[[{"wheat":2},{"coin":1}],[{"fish":1},{"egg":2}],[{"egg":2},{"coin":1}],[{"coin":1,"wheat":1},{"gem":1}],[{"coin":1},{"carrot":2}],[{"coin":2,"gem":1},{"map":1}]]},{"start":{"wheat":5,"fish":1},"goal":{"map":1},"trades":[[{"wheat":2},{"coin":1}],[{"fish":1},{"egg":2}],[{"egg":2},{"coin":1}],[{"coin":1,"wheat":1},{"gem":1}],[{"coin":1},{"carrot":1}],[{"coin":2,"gem":1},{"map":1}]]},{"start":{"wheat":5,"fish":1},"goal":{"map":1},"trades":[[{"wheat":2},{"coin":1}],[{"fish":1},{"egg":2}],[{"egg":1},{"coin":1}],[{"coin":1,"wheat":1},{"gem":1}],[{"coin":1},{"carrot":2}],[{"coin":2,"gem":1},{"map":1}]]},{"start":{"wheat":5,"fish":1},"goal":{"map":1},"trades":[[{"wheat":2},{"coin":1}],[{"fish":1},{"egg":2}],[{"egg":2},{"coin":1}],[{"coin":1,"wheat":1},{"gem":2}],[{"coin":1},{"carrot":2}],[{"coin":2,"gem":2},{"map":1}]]},{"start":{"wheat":5,"fish":1},"goal":{"map":1},"trades":[[{"wheat":2},{"coin":1}],[{"fish":1},{"egg":3}],[{"egg":2},{"coin":1}],[{"coin":1,"wheat":1},{"gem":1}],[{"coin":1},{"carrot":2}],[{"coin":2,"gem":1},{"map":1}]]},{"start":{"wheat":4,"fish":1},"goal":{"map":1},"trades":[[{"wheat":2},{"coin":1}],[{"fish":1},{"egg":2}],[{"egg":2},{"coin":1}],[{"coin":1,"wheat":1},{"gem":1}],[{"coin":1},{"carrot":2}],[{"coin":1,"gem":1},{"map":1}]]},{"start":{"wheat":5,"fish":1},"goal":{"map":1},"trades":[[{"wheat":2},{"coin":1}],[{"fish":1},{"egg":2}],[{"egg":2},{"coin":2}],[{"coin":1,"wheat":1},{"gem":1}],[{"coin":2},{"carrot":1}],[{"coin":2,"gem":1},{"map":1}]]},{"start":{"wheat":5,"fish":2},"goal":{"map":1},"trades":[[{"wheat":2},{"coin":1}],[{"fish":1},{"egg":2}],[{"egg":2},{"coin":1}],[{"coin":1,"wheat":1},{"gem":1}],[{"coin":1},{"carrot":2}],[{"coin":2,"gem":1},{"map":1}]]}],[{"start":{"wheat":6,"wool":2},"goal":{"lantern":1,"boots":1},"trades":[[{"wheat":3},{"coin":1}],[{"wool":1},{"coin":1}],[{"wheat":2},{"fish":1}],[{"fish":1,"coin":1},{"lantern":1}],[{"coin":2},{"boots":1}],[{"wool":2},{"egg":1}]]},{"start":{"wheat":6,"wool":2},"goal":{"lantern":1,"boots":1},"trades":[[{"wheat":3},{"coin":1}],[{"wool":1},{"coin":2}],[{"wheat":2},{"fish":1}],[{"fish":1,"coin":1},{"lantern":1}],[{"coin":2},{"boots":1}],[{"wool":2},{"egg":1}]]},{"start":{"wheat":6,"wool":2},"goal":{"lantern":1,"boots":1},"trades":[[{"wheat":3},{"coin":1}],[{"wool":1},{"coin":1}],[{"wheat":1},{"fish":1}],[{"fish":1,"coin":1},{"lantern":1}],[{"coin":2},{"boots":1}],[{"wool":2},{"egg":1}]]},{"start":{"wheat":6,"wool":3},"goal":{"lantern":1,"boots":1},"trades":[[{"wheat":3},{"coin":1}],[{"wool":1},{"coin":1}],[{"wheat":1},{"fish":1}],[{"fish":1,"coin":1},{"lantern":1}],[{"coin":1},{"boots":1}],[{"wool":2},{"egg":1}]]},{"start":{"wheat":6,"wool":2},"goal":{"lantern":1,"boots":1},"trades":[[{"wheat":3},{"coin":1}],[{"wool":1},{"coin":1}],[{"wheat":3},{"fish":1}],[{"fish":1,"coin":1},{"lantern":1}],[{"coin":2},{"boots":1}],[{"wool":2},{"egg":1}]]},{"start":{"wheat":6,"wool":2},"goal":{"lantern":1,"boots":1},"trades":[[{"wheat":3},{"coin":1}],[{"wool":1},{"coin":1}],[{"wheat":3},{"fish":1}],[{"fish":1,"coin":1},{"lantern":1}],[{"coin":2},{"boots":1}],[{"wool":2},{"egg":2}]]},{"start":{"wheat":5,"wool":2},"goal":{"lantern":1,"boots":1},"trades":[[{"wheat":3},{"coin":2}],[{"wool":1},{"coin":1}],[{"wheat":2},{"fish":1}],[{"fish":1,"coin":1},{"lantern":1}],[{"coin":2},{"boots":1}],[{"wool":2},{"egg":1}]]},{"start":{"wheat":6,"wool":2},"goal":{"lantern":1,"boots":1},"trades":[[{"wheat":3},{"coin":1}],[{"wool":1},{"coin":2}],[{"wheat":2},{"fish":1}],[{"fish":1,"coin":1},{"lantern":1}],[{"coin":2},{"boots":1}],[{"wool":1},{"egg":1}]]}],[{"start":{"carrot":6,"egg":1},"goal":{"cake":1},"trades":[[{"carrot":2},{"wheat":1}],[{"carrot":3},{"coin":1}],[{"coin":1},{"wheat":2}],[{"egg":1,"wheat":1},{"gem":1}],[{"wheat":2},{"egg":1}],[{"gem":1,"egg":1,"wheat":1},{"cake":1}]]},{"start":{"carrot":6,"egg":1},"goal":{"cake":1},"trades":[[{"carrot":2},{"wheat":1}],[{"carrot":2},{"coin":1}],[{"coin":1},{"wheat":2}],[{"egg":2,"wheat":1},{"gem":1}],[{"wheat":1},{"egg":1}],[{"gem":1,"egg":1,"wheat":1},{"cake":1}]]},{"start":{"carrot":5,"egg":1},"goal":{"cake":1},"trades":[[{"carrot":1},{"wheat":1}],[{"carrot":3},{"coin":2}],[{"coin":1},{"wheat":2}],[{"egg":1,"wheat":1},{"gem":1}],[{"wheat":2},{"egg":1}],[{"gem":1,"egg":1,"wheat":1},{"cake":1}]]},{"start":{"carrot":6,"egg":1},"goal":{"cake":1},"trades":[[{"carrot":2},{"wheat":1}],[{"carrot":3},{"coin":1}],[{"coin":1},{"wheat":2}],[{"egg":1,"wheat":1},{"gem":2}],[{"wheat":2},{"egg":1}],[{"gem":2,"egg":1,"wheat":1},{"cake":1}]]},{"start":{"carrot":6,"egg":1},"goal":{"cake":1},"trades":[[{"carrot":2},{"wheat":1}],[{"carrot":3},{"coin":1}],[{"coin":1},{"wheat":2}],[{"egg":1,"wheat":1},{"gem":1}],[{"wheat":2},{"egg":2}],[{"gem":1,"egg":1,"wheat":1},{"cake":1}]]},{"start":{"carrot":6,"egg":1},"goal":{"cake":1},"trades":[[{"carrot":2},{"wheat":1}],[{"carrot":2},{"coin":1}],[{"coin":1},{"wheat":2}],[{"egg":1,"wheat":1},{"gem":1}],[{"wheat":2},{"egg":1}],[{"gem":1,"egg":1,"wheat":1},{"cake":1}]]},{"start":{"carrot":6,"egg":1},"goal":{"cake":1},"trades":[[{"carrot":2},{"wheat":1}],[{"carrot":3},{"coin":1}],[{"coin":1},{"wheat":3}],[{"egg":1,"wheat":1},{"gem":1}],[{"wheat":2},{"egg":1}],[{"gem":1,"egg":1,"wheat":1},{"cake":1}]]},{"start":{"carrot":6,"egg":1},"goal":{"cake":1},"trades":[[{"carrot":2},{"wheat":1}],[{"carrot":3},{"coin":2}],[{"coin":1},{"wheat":2}],[{"egg":1,"wheat":1},{"gem":1}],[{"wheat":2},{"egg":1}],[{"gem":1,"egg":1,"wheat":1},{"cake":1}]]}],[{"start":{"fish":3,"wheat":4},"goal":{"map":1,"lantern":1},"trades":[[{"fish":1},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"gem":1}],[{"gem":1,"fish":1},{"map":1}],[{"coin":1,"wheat":1},{"lantern":1}],[{"fish":2},{"wool":1}],[{"wool":1},{"coin":1}]]},{"start":{"fish":3,"wheat":4},"goal":{"map":1,"lantern":1},"trades":[[{"fish":1},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"gem":1}],[{"gem":1,"fish":1},{"map":1}],[{"coin":1,"wheat":1},{"lantern":1}],[{"fish":2},{"wool":1}],[{"wool":2},{"coin":1}]]},{"start":{"fish":3,"wheat":5},"goal":{"map":1,"lantern":1},"trades":[[{"fish":1},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"gem":1}],[{"gem":1,"fish":1},{"map":1}],[{"coin":1,"wheat":1},{"lantern":1}],[{"fish":2},{"wool":1}],[{"wool":1},{"coin":1}]]},{"start":{"fish":3,"wheat":4},"goal":{"map":1,"lantern":1},"trades":[[{"fish":1},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"gem":2}],[{"gem":1,"fish":1},{"map":1}],[{"coin":1,"wheat":1},{"lantern":1}],[{"fish":1},{"wool":1}],[{"wool":1},{"coin":1}]]},{"start":{"fish":3,"wheat":4},"goal":{"map":1,"lantern":1},"trades":[[{"fish":1},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"gem":1}],[{"gem":1,"fish":1},{"map":1}],[{"coin":1,"wheat":1},{"lantern":1}],[{"fish":1},{"wool":1}],[{"wool":2},{"coin":1}]]},{"start":{"fish":3,"wheat":4},"goal":{"map":1,"lantern":1},"trades":[[{"fish":1},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"gem":1}],[{"gem":1,"fish":1},{"map":1}],[{"coin":1,"wheat":1},{"lantern":1}],[{"fish":1},{"wool":1}],[{"wool":1},{"coin":1}]]},{"start":{"fish":3,"wheat":3},"goal":{"map":1,"lantern":1},"trades":[[{"fish":1},{"coin":1}],[{"wheat":2},{"coin":1}],[{"coin":2},{"gem":1}],[{"gem":1,"fish":1},{"map":1}],[{"coin":1,"wheat":1},{"lantern":1}],[{"fish":2},{"wool":1}],[{"wool":1},{"coin":1}]]},{"start":{"fish":3,"wheat":4},"goal":{"map":1,"lantern":1},"trades":[[{"fish":1},{"coin":1}],[{"wheat":2},{"coin":2}],[{"coin":2},{"gem":1}],[{"gem":1,"fish":1},{"map":1}],[{"coin":1,"wheat":1},{"lantern":1}],[{"fish":2},{"wool":1}],[{"wool":1},{"coin":1}]]}],[{"start":{"wool":3,"carrot":5},"goal":{"boots":1,"cake":1},"trades":[[{"wool":1},{"coin":1}],[{"carrot":2},{"egg":1}],[{"coin":1,"carrot":1},{"wheat":2}],[{"egg":1,"wheat":2},{"cake":1}],[{"coin":2,"egg":1},{"boots":1}],[{"wool":2},{"gem":1}],[{"gem":1},{"coin":1}],[{"carrot":1},{"wheat":1}]]},{"start":{"wool":3,"carrot":5},"goal":{"boots":1,"cake":1},"trades":[[{"wool":1},{"coin":1}],[{"carrot":2},{"egg":1}],[{"coin":1,"carrot":1},{"wheat":2}],[{"egg":1,"wheat":2},{"cake":1}],[{"coin":2,"egg":1},{"boots":1}],[{"wool":2},{"gem":2}],[{"gem":1},{"coin":1}],[{"carrot":1},{"wheat":1}]]},{"start":{"wool":3,"carrot":6},"goal":{"boots":1,"cake":1},"trades":[[{"wool":1},{"coin":1}],[{"carrot":2},{"egg":1}],[{"coin":1,"carrot":1},{"wheat":1}],[{"egg":1,"wheat":2},{"cake":1}],[{"coin":2,"egg":1},{"boots":1}],[{"wool":3},{"gem":1}],[{"gem":1},{"coin":1}],[{"carrot":1},{"wheat":1}]]},{"start":{"wool":3,"carrot":5},"goal":{"boots":1,"cake":1},"trades":[[{"wool":1},{"coin":1}],[{"carrot":2},{"egg":1}],[{"coin":1,"carrot":1},{"wheat":2}],[{"egg":1,"wheat":1},{"cake":1}],[{"coin":2,"egg":1},{"boots":1}],[{"wool":2},{"gem":2}],[{"gem":1},{"coin":1}],[{"carrot":1},{"wheat":1}]]},{"start":{"wool":3,"carrot":5},"goal":{"boots":1,"cake":1},"trades":[[{"wool":1},{"coin":1}],[{"carrot":2},{"egg":2}],[{"coin":1,"carrot":1},{"wheat":2}],[{"egg":1,"wheat":2},{"cake":1}],[{"coin":2,"egg":1},{"boots":1}],[{"wool":2},{"gem":1}],[{"gem":1},{"coin":1}],[{"carrot":1},{"wheat":1}]]},{"start":{"wool":3,"carrot":5},"goal":{"boots":1,"cake":1},"trades":[[{"wool":1},{"coin":1}],[{"carrot":2},{"egg":1}],[{"coin":1,"carrot":1},{"wheat":2}],[{"egg":1,"wheat":2},{"cake":1}],[{"coin":1,"egg":1},{"boots":1}],[{"wool":3},{"gem":1}],[{"gem":2},{"coin":1}],[{"carrot":1},{"wheat":1}]]},{"start":{"wool":3,"carrot":5},"goal":{"boots":1,"cake":1},"trades":[[{"wool":1},{"coin":1}],[{"carrot":1},{"egg":1}],[{"coin":1,"carrot":1},{"wheat":2}],[{"egg":1,"wheat":2},{"cake":1}],[{"coin":2,"egg":1},{"boots":1}],[{"wool":2},{"gem":1}],[{"gem":1},{"coin":2}],[{"carrot":1},{"wheat":1}]]},{"start":{"wool":3,"carrot":5},"goal":{"boots":1,"cake":1},"trades":[[{"wool":1},{"coin":1}],[{"carrot":2},{"egg":1}],[{"coin":1,"carrot":1},{"wheat":3}],[{"egg":1,"wheat":2},{"cake":1}],[{"coin":1,"egg":1},{"boots":1}],[{"wool":2},{"gem":1}],[{"gem":1},{"coin":1}],[{"carrot":1},{"wheat":1}]]}]];
+  const MARKET = MARKET_BANK.map(v => v[0]);
   const invKey = inv => Object.keys(inv).sort().filter(k => inv[k] > 0).map(k => k + inv[k]).join(',');
   const canTrade = (inv, t) => Object.entries(t[0]).every(([k, n]) => (inv[k] || 0) >= n);
   const doTrade = (inv, t) => { const o = { ...inv }; for (const [k, n] of Object.entries(t[0])) o[k] -= n; for (const [k, n] of Object.entries(t[1])) o[k] = (o[k] || 0) + n; return o; };
@@ -1306,8 +1351,19 @@ body.farm { background: var(--sky); }
   const itemsHtml = obj => Object.entries(obj).map(([k, n]) => `<span class="it">${n > 1 ? '<b>' + n + '</b>' : ''}${ITEM[k]}</span>`).join('<span class="plus">+</span>');
   const itemsText = obj => Object.entries(obj).map(([k, n]) => n + ' ' + k).join(' and ');
 
-  function buildMarket(lv) {
-    const level = MARKET[lv];
+  // Swap which items play which part (fish might become wool) and shuffle the stalls,
+  // so a replayed level looks and reads differently.
+  function relabel(level, r) {
+    const basics = ['wheat', 'carrot', 'fish', 'egg', 'wool'], goals = ['lantern', 'boots', 'cake', 'map'];
+    const pb = shuffleWith(r, basics), pg = shuffleWith(r, goals);
+    const nm = k => basics.includes(k) ? pb[basics.indexOf(k)] : goals.includes(k) ? pg[goals.indexOf(k)] : k;
+    const m = o => Object.fromEntries(Object.entries(o).map(([k, n]) => [nm(k), n]));
+    return { start: m(level.start), goal: m(level.goal), trades: shuffleWith(r, level.trades.map(([g, t]) => [m(g), m(t)])) };
+  }
+  function buildMarket(lv, variant = 0) {
+    const bank = MARKET_BANK[lv];
+    const level = variant ? relabel(bank[variant % bank.length], rng(variant)) : bank[0];
+    window.__bq.cur = level;
     const best = marketPlan(level, level.start).length;
     let inv, trades, hinted, done, hintIdx = -1;
     const goalNames = Object.keys(level.goal);
