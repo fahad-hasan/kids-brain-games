@@ -1,0 +1,1297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Rocket Star Catcher</title>
+<meta name="description" content="Fly a rocket, catch stars, dodge space rocks and solve Space Gate puzzles.">
+<meta name="theme-color" content="#050820">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Star Catcher">
+<link rel="preload" href="../fonts/baloo2-800.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: "Baloo 2"; font-weight: 600; font-display: swap; src: url("../fonts/baloo2-600.woff2") format("woff2"); }
+@font-face { font-family: "Baloo 2"; font-weight: 800; font-display: swap; src: url("../fonts/baloo2-800.woff2") format("woff2"); }
+*, *::before, *::after { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); height: 100%; }
+body { margin: 0; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<style>
+/* Layout: one full-screen night-sky canvas; HUD row (stars, hearts, sound) plus a fuel gauge row above it; cards centred. Single dark theme by choice. */
+:root {
+  --sky: #0b1033;
+  --sky-deep: #050820;
+  --star: #ffd23f;
+  --heart: #ff5d73;
+  --fuel: #7ae582;
+  --fuel-low: #ff9f1c;
+  --gem: #f472d0;
+  --ink: #fdf6e3;
+  --panel: rgba(20, 28, 80, 0.88);
+  --font: "Baloo 2", "Comic Sans MS", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html { height: 100%; }
+body { height: 100%; }
+body {
+  background: var(--sky-deep);
+  color: var(--ink);
+  font-family: var(--font);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wrap {
+  position: relative;
+  height: 100%;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 4px 14px 4px 10px;
+  font-size: 1.8rem; font-weight: 800; line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.pill svg { width: 30px; height: 30px; flex: none; }
+.hearts { gap: 2px; padding: 6px 12px; }
+.hearts svg { width: 26px; height: 26px; transition: transform .25s, opacity .25s; }
+.hearts svg.gone { opacity: .22; transform: scale(.75); }
+.fuelrow { display: flex; align-items: center; gap: 10px; background: var(--panel); border-radius: 999px; padding: 6px 14px 6px 10px; }
+.fuelrow svg { width: 26px; height: 26px; flex: none; }
+.gauge { flex: 1; height: 16px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
+.gauge i { display: block; height: 100%; width: 100%; border-radius: 999px; background: var(--fuel); transition: background .3s; }
+.gauge.low i { background: var(--fuel-low); animation: blink .6s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .45; } }
+.fuelrow b { font-size: 1.05rem; font-weight: 800; min-width: 3.2em; text-align: right; }
+.gems { display: flex; gap: 2px; padding-left: 8px; border-left: 2px solid rgba(255,255,255,0.15); }
+.gems svg { width: 24px; height: 24px; transition: transform .3s; }
+.gems svg.got { transform: scale(1.15); }
+.gems svg:not(.got) path { fill: transparent; stroke: rgba(255,255,255,0.35); }
+.trophy-card h1 { color: var(--gem); text-shadow: 0 4px 0 #6b1a8a; }
+.trophy-big { width: clamp(110px, 32vw, 160px); height: auto; animation: bounce 1.2s ease-in-out infinite; }
+@keyframes bounce { 50% { transform: translateY(-10px) rotate(-3deg); } }
+.shelf { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 90%; }
+.shelf svg { width: 34px; height: 34px; }
+.yay.gem { color: var(--gem); text-shadow: 0 4px 0 #6b1a8a; }
+.yay.level { color: #4cc9f0; text-shadow: 0 4px 0 #1d4e89; top: 24%; }
+
+/* Space Gate puzzles */
+.card.gate {
+  --cell: clamp(40px, min(13vw, 8.5vh), 62px);
+  background: rgba(5, 8, 32, 0.94);
+  justify-content: safe center; overflow-y: auto; gap: 12px; padding: 14px;
+}
+.gate-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; max-width: 560px; }
+.gate-tag { font-size: 1.05rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #4cc9f0; }
+.gate-top .btn { display: flex; align-items: center; gap: 6px; }
+.gate-top .btn svg { width: 22px; height: 22px; }
+.gate h2 { margin: 0; font-size: clamp(1.5rem, 5.5vw, 2.2rem); line-height: 1.1; text-wrap: balance; color: var(--ink); }
+.gbody { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 560px; }
+.row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; }
+.item svg { width: clamp(32px, 9vw, 50px); height: auto; display: block; }
+.item.sm svg { width: clamp(26px, 7vw, 34px); }
+.group { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 190px; }
+.sym { font-size: 2rem; font-weight: 800; }
+.slot {
+  width: clamp(40px, 11vw, 56px); aspect-ratio: 1; max-width: 100%;
+  border: 3px dashed var(--star); border-radius: 14px;
+  display: grid; place-items: center; font-size: 1.8rem; font-weight: 800; color: var(--star);
+}
+.choices { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.choices:has(.lane) { gap: 8px; flex-wrap: nowrap; }
+.choice {
+  font: inherit; font-size: 2rem; font-weight: 800; color: var(--ink);
+  background: #1e2a6e; border: 4px solid #4cc9f0; border-radius: 20px;
+  min-width: 76px; min-height: 76px; padding: 8px 14px; cursor: pointer;
+  display: grid; place-items: center;
+}
+.choice svg { width: 48px; height: 48px; }
+.choice:focus-visible { outline: 4px solid var(--star); outline-offset: 3px; }
+.choice:disabled { cursor: default; }
+.choice.no { opacity: .3; animation: shake .4s; }
+.choice.yes { background: #1b6b3a; border-color: var(--fuel); }
+.choice.small { font-size: 1.3rem; min-width: 64px; min-height: 64px; }
+.choice.go-btn { background: var(--star); color: #3b0a14; border-color: #c2410c; }
+.choice.lane {
+  width: clamp(60px, 19vw, 100px); height: clamp(170px, 34vh, 240px);
+  padding: 0; position: relative; display: block;
+  background: linear-gradient(#141c50, #222d6e);
+}
+.lrock { position: absolute; width: 36%; }
+.lrock svg { width: 100%; height: auto; display: block; }
+.lane-ship svg { width: 44px; height: 44px; display: block; }
+.item.gone svg { opacity: .22; }
+.sym.big { font-size: clamp(1.8rem, 7vw, 2.6rem); }
+.legend b { font-size: 1.4rem; margin-right: 10px; }
+.tenframe { display: grid; grid-template-columns: repeat(5, clamp(38px, 11vw, 50px)); gap: 4px; background: #141c50; padding: 6px; border-radius: 12px; }
+.tf { aspect-ratio: 1; background: #222d6e; border-radius: 8px; display: grid; place-items: center; }
+.tf svg { width: 75%; height: 75%; }
+.choice.tile { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 2px; width: 104px; min-height: 96px; padding: 8px; }
+.choice.tile svg { width: 26px; height: 26px; }
+.mem { display: grid; gap: 12px; }
+.choice.memb { width: clamp(74px, 22vw, 92px); height: clamp(74px, 22vw, 92px); padding: 0; transition: transform .12s, background .12s, box-shadow .12s; }
+.choice.memb svg { width: 64%; height: 64%; }
+.choice.memb.lit { background: #fdf6e3; transform: scale(1.08); box-shadow: 0 0 26px #fdf6e3; }
+.grid { display: grid; gap: 4px; background: #141c50; padding: 6px; border-radius: 16px; }
+.cell { width: var(--cell); height: var(--cell); background: #222d6e; border-radius: 10px; display: grid; place-items: center; position: relative; }
+.cell svg { width: 78%; height: 78%; }
+.cell.dot::after { content: ""; position: absolute; width: 22%; height: 22%; border-radius: 50%; background: var(--star); opacity: .75; }
+.cell.bump svg { animation: shake .4s; }
+.prog {
+  display: flex; flex-wrap: wrap; gap: 4px; min-height: 46px; width: 100%;
+  justify-content: center; align-items: center;
+  background: rgba(255,255,255,.07); border-radius: 14px; padding: 6px 10px; box-sizing: border-box;
+}
+.prog svg { width: 30px; height: 30px; display: block; color: var(--ink); }
+.prog .cur { outline: 3px solid var(--star); border-radius: 6px; }
+.prog .empty { opacity: .7; font-size: 1.05rem; }
+.pad { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.pad .choice svg { width: 36px; height: 36px; }
+.gmsg { min-height: 1.6em; font-size: 1.25rem; font-weight: 800; color: var(--star); text-align: center; max-width: 30ch; text-wrap: balance; }
+@keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+@media (prefers-reduced-motion: reduce) { .choice.no, .cell.bump svg { animation: none; } }
+.btn {
+  font: inherit; color: var(--ink);
+  background: var(--panel);
+  border: 3px solid rgba(255,255,255,0.15);
+  border-radius: 999px;
+  padding: 6px 14px; font-size: 1.05rem; font-weight: 800;
+  cursor: pointer; white-space: nowrap;
+}
+.tools { display: flex; gap: 8px; }
+.btn.icon { width: 46px; height: 46px; padding: 0; display: grid; place-items: center; text-decoration: none; }
+.btn.icon svg { width: 24px; height: 24px; }
+#sound .mute, #sound[aria-pressed="false"] .waves { display: none; }
+#sound[aria-pressed="false"] .mute { display: inline; }
+.btn:focus-visible { outline: 4px solid var(--star); outline-offset: 2px; }
+.stage {
+  position: relative; flex: 1; min-height: 0;
+  border-radius: 24px; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 120%, #2a1f6b 0%, var(--sky) 55%, var(--sky-deep) 100%);
+}
+canvas { display: block; width: 100%; height: 100%; }
+.card {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; text-align: center; padding: 20px;
+  background: rgba(5, 8, 32, 0.6);
+}
+.card h1 {
+  margin: 0; font-size: clamp(2.4rem, 9vw, 4.2rem); font-weight: 800;
+  line-height: 1; text-wrap: balance; color: var(--star);
+  text-shadow: 0 4px 0 #c2410c;
+}
+.card p { margin: 0; font-size: clamp(1.1rem, 4vw, 1.45rem); max-width: 24ch; text-wrap: balance; }
+.card .big { font-size: clamp(1.6rem, 6vw, 2.2rem); font-weight: 800; }
+.go {
+  font: inherit; font-size: 2rem; font-weight: 800;
+  color: #3b0a14; background: var(--star);
+  border: none; border-radius: 999px;
+  padding: 10px 44px; cursor: pointer;
+  box-shadow: 0 6px 0 #c2410c;
+}
+.go:active { transform: translateY(4px); box-shadow: 0 2px 0 #c2410c; }
+.go:focus-visible { outline: 4px solid var(--ink); outline-offset: 4px; }
+.yay {
+  position: absolute; left: 50%; top: 38%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(2rem, 8vw, 3.4rem); font-weight: 800; color: var(--star);
+  text-shadow: 0 4px 0 #c2410c; pointer-events: none; white-space: nowrap;
+  animation: pop 1.6s ease-out forwards;
+}
+.yay.fuel { color: var(--fuel); text-shadow: 0 4px 0 #1b6b3a; }
+@keyframes pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -70%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .yay { animation-duration: 2.2s; } .gauge.low i, .trophy-big { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <div class="pill" aria-label="Stars caught">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ffd23f" stroke="#c2410c" stroke-width="1.2" stroke-linejoin="round" d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5-4.9-4.5 6.6-.8z"/></svg>
+      <span id="score" aria-live="polite">0</span>
+    </div>
+    <div class="pill hearts" id="hearts" aria-label="Lives: 5"></div>
+    <div class="tools">
+      <button class="btn icon" id="sound" type="button" aria-pressed="true" aria-label="Sound on"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z"/><path class="waves" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/><path class="mute" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M16 9l6 6M22 9l-6 6"/></svg></button>
+      <a class="btn icon" href="../" aria-label="All games"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></a>
+    </div>
+  </div>
+  <div class="fuelrow" aria-label="Fuel">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#7ae582" stroke="#1b6b3a" stroke-width="1.4" stroke-linejoin="round" d="M6 5h9l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path fill="#1b6b3a" d="M8 9h7v3H8z"/></svg>
+    <div class="gauge" id="gauge"><i id="fuelbar"></i></div>
+    <b id="fueltext">Full</b>
+    <div class="gems" id="gems" aria-label="Gems: 0 of 3"></div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="c"></canvas>
+    <div class="card" id="start">
+      <h1>Rocket Star Catcher</h1>
+      <p>Slide your finger to fly. Catch the stars! Dodge the space rocks. Grab green fuel cans to fill your tank. Find 3 rare pink gems to win a trophy! Solve the Space Gate puzzle to reach the next level.</p>
+      <div class="shelf" data-shelf></div>
+      <button class="go" id="go" type="button">Fly!</button>
+    </div>
+    <div class="card" id="over" hidden>
+      <h1>Great flying!</h1>
+      <p class="big" id="final">You caught 0 stars</p>
+      <p id="best"></p>
+      <div class="shelf" data-shelf></div>
+      <button class="go" id="again" type="button">Fly again!</button>
+    </div>
+    <div class="card gate" id="gate" hidden>
+      <div class="gate-top">
+        <span class="gate-tag" id="gtag">Space Gate 1</span>
+        <button class="btn" id="hear" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>Hear it</button>
+      </div>
+      <h2 id="gq">What comes next?</h2>
+      <div class="gbody" id="gbody"></div>
+      <div class="gmsg" id="gmsg" aria-live="polite"></div>
+    </div>
+    <div class="card trophy-card" id="trophy" hidden>
+      <svg class="trophy-big" viewBox="0 0 64 64" aria-hidden="true"><path fill="#ffd23f" stroke="#c2410c" stroke-width="2.5" stroke-linejoin="round" d="M18 8h28v14a14 14 0 0 1-28 0zM18 12H9v5a9 9 0 0 0 9 9M46 12h9v5a9 9 0 0 1-9 9M28 36h8v9h-8zM20 45h24v6H20zM16 51h32v6H16z"/><path fill="#f472d0" stroke="#6b1a8a" stroke-width="1.8" stroke-linejoin="round" d="M32 13l6 6-6 9-6-9z"/></svg>
+      <h1>You won a trophy!</h1>
+      <p class="big" id="trophycount">Trophy number 1</p>
+      <button class="go" id="resume" type="button">Keep flying!</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const heartsEl = document.getElementById('hearts');
+  const gauge = document.getElementById('gauge');
+  const fuelBar = document.getElementById('fuelbar');
+  const fuelText = document.getElementById('fueltext');
+  const startCard = document.getElementById('start');
+  const overCard = document.getElementById('over');
+  const soundBtn = document.getElementById('sound');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const MAX_LIVES = 5;
+  const TANK_SECONDS = 25;   // a full tank lasts about this long
+  const LEVEL_SECONDS = 30;  // a new level every 30 seconds
+  const MAX_LEVEL = 10;
+
+  const heartSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff5d73" stroke="#8a1a2b" stroke-width="1.4" stroke-linejoin="round" d="M12 20.5s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.9c0 5.4-7.5 10-7.5 10z"/></svg>';
+  heartsEl.innerHTML = heartSvg.repeat(MAX_LIVES);
+  const heartIcons = [...heartsEl.children];
+
+  // Gems and trophies carry over between rounds (and visits, when the browser allows)
+  const GEMS_FOR_TROPHY = 3;
+  const gemSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#f472d0" stroke="#f9a8e8" stroke-width="1.6" stroke-linejoin="round" d="M7 4h10l4 5-9 12L3 9z"/></svg>';
+  const trophySvg = '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="#ffd23f" stroke="#c2410c" stroke-width="3" stroke-linejoin="round" d="M18 8h28v14a14 14 0 0 1-28 0zM18 12H9v5a9 9 0 0 0 9 9M46 12h9v5a9 9 0 0 1-9 9M28 36h8v9h-8zM20 45h24v6H20zM16 51h32v6H16z"/></svg>';
+  const gemsEl = document.getElementById('gems');
+  gemsEl.innerHTML = gemSvg.repeat(GEMS_FOR_TROPHY);
+  const gemIcons = [...gemsEl.children];
+  const trophyCard = document.getElementById('trophy');
+  let gemCount = 0, trophies = 0;
+  try {
+    const saved = JSON.parse(localStorage.getItem('rocket-gems') || '{}');
+    gemCount = Math.min(GEMS_FOR_TROPHY - 1, saved.gems | 0);
+    trophies = saved.trophies | 0;
+  } catch (_) {}
+  function saveGems() {
+    try { localStorage.setItem('rocket-gems', JSON.stringify({ gems: gemCount, trophies })); } catch (_) {}
+  }
+  function renderGems() {
+    gemIcons.forEach((g, i) => g.classList.toggle('got', i < gemCount));
+    gemsEl.setAttribute('aria-label', 'Gems: ' + gemCount + ' of ' + GEMS_FOR_TROPHY);
+    document.querySelectorAll('[data-shelf]').forEach(s => {
+      s.innerHTML = trophySvg.repeat(Math.min(trophies, 30));
+      s.setAttribute('aria-label', 'Trophies: ' + trophies);
+      s.hidden = trophies === 0;
+    });
+  }
+
+  let W = 0, H = 0, dpr = 1;
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    walls = [];
+    ship.y = H - Math.max(70, H * 0.14);
+    ship.x = Math.min(Math.max(ship.x || W / 2, 30), W - 30);
+  }
+
+  // Sound: tiny synth beeps, started only after a tap
+  let audio = null, soundOn = true;
+  function beep(freq, dur = 0.12, type = 'sine', vol = 0.15) {
+    if (!soundOn || !audio) return;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + dur);
+    o.connect(g).connect(audio.destination);
+    o.start(); o.stop(audio.currentTime + dur);
+  }
+  const notes = [523, 587, 659, 784, 880];
+  soundBtn.addEventListener('click', () => {
+    soundOn = !soundOn;
+    soundBtn.setAttribute('aria-label', soundOn ? 'Sound on' : 'Sound off');
+    soundBtn.setAttribute('aria-pressed', soundOn);
+  });
+
+  // World
+  const ship = { x: 0, y: 0, tx: null, wobble: 0, size: 34 };
+  const shipColors = ['#ff5d73', '#4cc9f0', '#7ae582', '#c77dff', '#ff9f1c'];
+  let colorIdx = 0;
+  let stars = [], rocks = [], cans = [], gemsFalling = [], sparks = [], bg = [];
+  let score = 0, best = 0, lives = MAX_LIVES, fuel = 1;
+  let playing = false, paused = false, t = 0, last = 0, nextStar = 0, nextRock = 2, nextCan = 8;
+  let level = 1, levelTime = 0, runTime = 0, gateNum = 0;
+  // Canyon walls: rows of left/right edges that scroll down; a "squeeze" narrows the gap for a while
+  const SEG = 16;
+  let walls = [], wallInset = 0, squeezeLeft = 0, nextSqueeze = 20, rowIdx = 0;
+  const gemWait = () => 30 + Math.random() * 25;   // super rare: one every 30–55 seconds
+  let nextGem = gemWait();
+  const keys = {};
+
+  for (let i = 0; i < 90; i++) bg.push({ x: Math.random(), y: Math.random(), s: Math.random() * 1.8 + 0.4, v: Math.random() * 0.5 + 0.2 });
+
+  // Difficulty climbs with each level: things fall faster and rocks come more often
+  // Speed climbs smoothly the longer you fly: 2x after about 75 seconds, topping out a bit over 3x
+  function speed() { return 1 + Math.min(2.2, runTime / 75); }
+  function rockRate() { return 1 + (level - 1) * 0.22; }
+
+  function laneAt(y) {
+    let best = null, bd = Infinity;
+    for (const w of walls) { const d = Math.abs(w.y - y); if (d < bd) { bd = d; best = w; } }
+    return best && bd < SEG * 2 ? best : { l: 0, r: W };
+  }
+  function spawnX(pad) {
+    const ln = laneAt(-SEG);
+    return ln.l + pad + Math.random() * Math.max(0, ln.r - ln.l - pad * 2);
+  }
+
+  function spawnStar() {
+    stars.push({ x: spawnX(30), y: -30, r: 18, spin: Math.random() * 6, vy: 90 + Math.random() * 40 });
+  }
+  function spawnRock() {
+    // from level 4, some rocks drift sideways too
+    const vx = level >= 4 && Math.random() < 0.5 ? (Math.random() < .5 ? -1 : 1) * (25 + level * 8) : 0;
+    rocks.push({ x: spawnX(32), y: -40, r: 20 + Math.random() * 10, rot: 0, vr: (Math.random() - .5) * 2, vx, vy: 70 + Math.random() * 40,
+      bumps: Array.from({ length: 9 }, () => 0.8 + Math.random() * 0.3) });
+  }
+  function spawnCan() {
+    cans.push({ x: spawnX(40), y: -40, vy: 85, sway: Math.random() * 6 });
+  }
+  function spawnGem() {
+    gemsFalling.push({ x: spawnX(50), y: -40, vy: 70, sway: Math.random() * 6 });
+    beep(1319, .12, 'sine', .1); setTimeout(() => beep(1568, .16, 'sine', .1), 120);
+  }
+  function burst(x, y, color, n = 14) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = 60 + Math.random() * 140;
+      sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.7, color });
+    }
+  }
+  function cheer(text, cls = '') {
+    const el = document.createElement('div');
+    el.className = 'yay ' + cls; el.textContent = text;
+    stage.appendChild(el);
+    setTimeout(() => el.remove(), 2300);
+  }
+
+  function renderLives() {
+    heartIcons.forEach((h, i) => h.classList.toggle('gone', i >= lives));
+    heartsEl.setAttribute('aria-label', 'Lives: ' + lives);
+  }
+  let lastFuelPct = -1;
+  function renderFuel() {
+    const pct = Math.round(fuel * 100);
+    if (pct === lastFuelPct) return;
+    lastFuelPct = pct;
+    fuelBar.style.width = pct + '%';
+    gauge.classList.toggle('low', fuel < 0.25);
+    fuelText.textContent = pct >= 100 ? 'Full' : pct <= 0 ? 'Empty' : pct + '%';
+  }
+
+  function resetGame() {
+    score = 0; lives = MAX_LIVES; fuel = 1; colorIdx = 0;
+    stars = []; rocks = []; cans = []; gemsFalling = []; sparks = [];
+    nextStar = 0.3; nextRock = 2.5; nextCan = 8; nextGem = gemWait();
+    level = 1; levelTime = 0; runTime = 0; gateNum = 0;
+    gateCard.hidden = true;
+    try { speechSynthesis.cancel(); } catch (_) {}
+    walls = []; wallInset = 0; squeezeLeft = 0; nextSqueeze = 20; rowIdx = 0;
+    paused = false;
+    ship.x = W / 2; ship.tx = W / 2; ship.wobble = 0;
+    scoreEl.textContent = 0;
+    lastFuelPct = -1;
+    renderLives(); renderFuel();
+  }
+
+  function startGame() {
+    try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch (_) { audio = null; }
+    startCard.hidden = true; overCard.hidden = true;
+    resetGame();
+    playing = true;
+    beep(523, .1); setTimeout(() => beep(784, .15), 110);
+  }
+
+  function gameOver() {
+    playing = false;
+    best = Math.max(best, score);
+    document.getElementById('final').textContent = 'You caught ' + score + (score === 1 ? ' star' : ' stars');
+    document.getElementById('best').textContent = 'You reached level ' + (gateNum + 1) + '. ' + (score > 0 && score === best ? 'Your best yet!' : 'Best so far: ' + best);
+    [784, 659, 523].forEach((f, i) => setTimeout(() => beep(f, .2, 'triangle', .15), i * 160));
+    setTimeout(() => { overCard.hidden = false; document.getElementById('again').focus(); }, 700);
+  }
+
+  // Input: drag anywhere, mouse follows, or arrow keys
+  function pointerX(e) { const r = cv.getBoundingClientRect(); return e.clientX - r.left; }
+  stage.addEventListener('pointerdown', e => { if (playing) ship.tx = pointerX(e); });
+  stage.addEventListener('pointermove', e => { if (playing) ship.tx = pointerX(e); });
+  addEventListener('keydown', e => { keys[e.key] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); });
+  addEventListener('keyup', e => { keys[e.key] = false; });
+
+  document.getElementById('go').addEventListener('click', startGame);
+  document.getElementById('again').addEventListener('click', startGame);
+  document.getElementById('resume').addEventListener('click', () => {
+    trophyCard.hidden = true; paused = false; last = performance.now();
+  });
+
+  // ---------- Space Gates: a thinking puzzle at the end of every level ----------
+  // Five puzzle kinds rotate (patterns, counting/adding, safest path, odd one out, planning a route)
+  // and each gets harder the further you go.
+  const gateCard = document.getElementById('gate');
+  const gTag = document.getElementById('gtag');
+  const gQ = document.getElementById('gq');
+  const gBody = document.getElementById('gbody');
+  const gMsg = document.getElementById('gmsg');
+  let gateDone = false, gateSpeech = '', gateId = 0;
+
+  const SHAPES = {
+    star: '<path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5-4.9-4.5 6.6-.8z"/>',
+    circle: '<circle cx="12" cy="12" r="9"/>',
+    square: '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/>',
+    triangle: '<path d="M12 3l9.5 17h-19z"/>',
+    heart: '<path d="M12 20.5s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.9c0 5.4-7.5 10-7.5 10z"/>',
+    moon: '<path d="M15 3a9 9 0 1 0 6 15.5A8 8 0 0 1 15 3z"/>'
+  };
+  const COLORS = { red: '#ff5d73', blue: '#4cc9f0', yellow: '#ffd23f', green: '#7ae582', purple: '#c77dff', orange: '#ff9f1c' };
+  const rnd = n => Math.floor(Math.random() * n);
+  const pick = a => a[rnd(a.length)];
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const shapeSvg = (k, c) => `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="${COLORS[c]}" stroke="#0b1033" stroke-width="1.4" stroke-linejoin="round">${SHAPES[k]}</g></svg>`;
+  const ROCK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#9a7b6a" stroke="#5c4033" stroke-width="1.6" stroke-linejoin="round" d="M7 4l7-1 6 5 1 7-5 6H8l-5-6 1-7z"/><circle cx="9" cy="9" r="1.8" fill="#7a5f50"/><circle cx="15" cy="14" r="1.4" fill="#7a5f50"/></svg>';
+  const ROCKET_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff9f1c" d="M10 16.5h4l-2 5z"/><path fill="#3a86ff" d="M8.6 11.5l-3.4 5.5 3.6-.6zM15.4 11.5l3.4 5.5-3.6-.6z"/><path fill="#ff5d73" stroke="#2b0b3f" stroke-width="1.3" stroke-linejoin="round" d="M12 2c4 3 5 8 3.4 14.5H8.6C7 10 8 5 12 2z"/><circle cx="12" cy="9" r="2.1" fill="#bde0fe" stroke="#fdf6e3" stroke-width="1"/></svg>';
+  const PLANET_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="#7ae582" stroke="#1b6b3a" stroke-width="1.4"/><ellipse cx="12" cy="12" rx="11" ry="3" fill="none" stroke="#ffd23f" stroke-width="1.6" transform="rotate(-20 12 12)"/></svg>';
+  const arrowSvg = rot => `<svg viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(${rot}deg)"><path fill="currentColor" d="M12 3l7.5 8.5H15V21H9v-9.5H4.5z"/></svg>`;
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+
+  // Read questions aloud for kids who are still learning to read
+  function say(text, force) {
+    if (!force && !soundOn) return;
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.9; u.pitch = 1.15; speechSynthesis.speak(u); } catch (_) {}
+  }
+  document.getElementById('hear').addEventListener('click', () => say(gateSpeech, true));
+
+  function setQ(text, speech) { gQ.textContent = text; gateSpeech = speech || text; }
+
+  function choices(opts, correct, hint, extraCls = '') {
+    const wrap = el('div', 'choices');
+    opts.forEach((o, i) => {
+      const b = el('button', 'choice ' + extraCls, o.html);
+      b.type = 'button'; b.setAttribute('aria-label', o.label);
+      b.addEventListener('click', () => {
+        if (gateDone) return;
+        if (i === correct) { b.classList.add('yes'); gateSolved(); }
+        else { b.classList.add('no'); b.disabled = true; gateMiss(hint); }
+      });
+      wrap.appendChild(b);
+    });
+    gBody.appendChild(wrap);
+  }
+
+  function gateMiss(hint) {
+    beep(196, .22, 'square', .06);
+    const m = 'Not that one. ' + (hint || 'Try again!');
+    gMsg.textContent = m; say(m);
+  }
+
+  function gateSolved() {
+    if (gateDone) return;
+    gateDone = true;
+    let reward;
+    if (lives < MAX_LIVES) { lives++; renderLives(); reward = 'You got a heart back!'; }
+    else { fuel = 1; renderFuel(); reward = 'Your fuel tank is full!'; }
+    gMsg.textContent = 'Gate open! ' + reward;
+    say('Great thinking! ' + reward);
+    [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, .16, 'triangle', .18), i * 100));
+    setTimeout(() => {
+      gateCard.hidden = true;
+      gateNum++; level = Math.min(MAX_LEVEL, level + 1);
+      paused = false;
+      cheer('Level ' + (gateNum + 1) + '!', 'level');
+    }, 2000);
+  }
+
+  const PUZZLES = [patternPuzzle, countPuzzle, lanePuzzle, oddPuzzle, codePuzzle, memoryPuzzle];
+  function openGate() {
+    paused = true; gateDone = false; gateId++;
+    const d = gateNum + 1;
+    gTag.textContent = 'Space Gate ' + d;
+    gMsg.textContent = ''; gBody.innerHTML = '';
+    PUZZLES[gateNum % PUZZLES.length](Math.floor(gateNum / PUZZLES.length));
+    gateCard.hidden = false; gateCard.scrollTop = 0;
+    [784, 988, 1175].forEach((f, i) => setTimeout(() => beep(f, .14, 'sine', .12), i * 120));
+    setTimeout(() => say(gateSpeech), 450);
+    const first = gBody.querySelector('button');
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  // Each puzzle gets k = how many times that puzzle type has already come up (0, 1, 2...),
+  // so every type starts at a stretch level and gets harder each time it returns.
+  const key = o => o.k + o.c;
+  const numberOptions = ans => {
+    const set = new Set([ans]);
+    while (set.size < 4) { const v = ans + pick([-3, -2, -1, 1, 2, 3]); if (v >= 0) set.add(v); }
+    return shuffle([...set]);
+  };
+
+  // 1. Patterns: find the rule, fill the gap, then patterns with two rules at once
+  function patternPuzzle(k) {
+    const ks = shuffle(Object.keys(SHAPES)), cs = shuffle(Object.keys(COLORS));
+    const row = el('div', 'row');
+    let seq, hole, ans, opts, hint, q = 'What comes next?', speech = 'Look at the pattern. What comes next?';
+    if (k >= 2) {
+      // shapes and colours repeat on different beats
+      const a = pick([2, 3]), b = a === 2 ? 3 : pick([2, 4]);
+      const item = i => ({ k: ks[i % a], c: cs[i % b] });
+      const len = 7 + rnd(2);
+      seq = Array.from({ length: len }, (_, i) => item(i));
+      hole = len; ans = item(len);
+      const set = new Map([[key(ans), ans]]);
+      const addFirst = list => { for (const o of shuffle(list)) if (!set.has(key(o))) { set.set(key(o), o); return; } };
+      addFirst(cs.slice(0, b + 1).map(c => ({ k: ans.k, c })));
+      addFirst(ks.slice(0, a + 1).map(s => ({ k: s, c: ans.c })));
+      addFirst(ks.slice(0, a + 1).flatMap(s => cs.slice(0, b + 1).map(c => ({ k: s, c }))));
+      opts = shuffle([...set.values()]);
+      hint = 'The shapes and the colours have their own patterns. Look at the shapes first, then the colours.';
+    } else {
+      const pool = [0, 1, 2, 3, 4].map(i => ({ k: ks[i], c: cs[i] }));
+      const unit = k === 0
+        ? pick([[0, 1, 2], [0, 0, 1], [0, 1, 1], [0, 1, 1, 2], [0, 0, 1, 2]])
+        : pick([[0, 1, 2, 3], [0, 0, 1, 1], [0, 1, 2, 1], [0, 1, 0, 2], [0, 0, 1, 2, 2]]);
+      const len = Math.min(10, unit.length * 2 + 1 + rnd(unit.length));
+      const idx = Array.from({ length: len }, (_, i) => unit[i % unit.length]);
+      if (k === 1) {
+        hole = unit.length + rnd(len - unit.length);
+        q = 'What is missing?'; speech = 'One is missing from the pattern. Which one goes in the gap?';
+      } else hole = len;
+      const ansIdx = unit[hole % unit.length];
+      ans = pool[ansIdx];
+      seq = idx.map(i => pool[i]);
+      const others = shuffle([0, 1, 2, 3, 4].filter(i => i !== ansIdx)).sort((x, y) => unit.includes(y) - unit.includes(x)).slice(0, 3);
+      opts = shuffle([ansIdx, ...others]).map(i => pool[i]);
+      hint = 'Find the part that repeats. Point at each one and say it out loud.';
+    }
+    seq.forEach((o, i) => row.appendChild(i === hole ? el('span', 'slot', '?') : el('span', 'item', shapeSvg(o.k, o.c))));
+    if (hole >= seq.length) row.appendChild(el('span', 'slot', '?'));
+    gBody.appendChild(row);
+    setQ(q, speech);
+    choices(opts.map(o => ({ html: shapeSvg(o.k, o.c), label: o.c + ' ' + o.k })), opts.indexOf(ans), hint);
+  }
+
+  // 2. Number sense: adding, taking away, making 10, missing numbers, two-step sums
+  function countPuzzle(k) {
+    const row = el('div', 'row');
+    const stars = (n, c, faded = 0) => {
+      const g = el('div', 'group');
+      for (let i = 0; i < n; i++) g.appendChild(el('span', 'item sm' + (i >= n - faded ? ' gone' : ''), shapeSvg('star', c)));
+      return g;
+    };
+    const mode = k === 0 ? pick(['add', 'sub']) : k === 1 ? pick(['make10', 'add20', 'sub']) : pick(['two', 'missing', 'add20', 'make10']);
+    let ans, q, speech, hint;
+    if (mode === 'add') {
+      const a = 2 + rnd(7), b = 1 + rnd(Math.max(1, 10 - a));
+      ans = a + b;
+      row.append(stars(a, 'yellow'), el('span', 'sym', '+'), stars(b, 'blue'), el('span', 'sym', '='), el('span', 'slot', '?'));
+      q = a + ' + ' + b + ' = ?'; speech = a + ' plus ' + b + '. How many stars altogether?';
+      hint = 'Start at ' + Math.max(a, b) + ' and count on the others.';
+    } else if (mode === 'sub') {
+      const total = (k === 0 ? 6 : 9) + rnd(5), take = 2 + rnd(total - 3);
+      ans = total - take;
+      row.append(stars(total, 'yellow', take));
+      q = total + ' − ' + take + ' = ?'; speech = 'There were ' + total + ' stars. ' + take + ' flew away. How many are left?';
+      hint = 'Count only the bright stars.';
+    } else if (mode === 'make10') {
+      const have = 1 + rnd(9);
+      ans = 10 - have;
+      const tf = el('div', 'tenframe');
+      for (let i = 0; i < 10; i++) tf.appendChild(el('span', 'tf', i < have ? shapeSvg('star', 'yellow') : ''));
+      row.append(tf);
+      q = have + ' + ? = 10'; speech = 'There are ' + have + ' stars. How many more do we need to make 10?';
+      hint = 'Count the empty boxes.';
+    } else if (mode === 'add20') {
+      const a = 6 + rnd(7), b = 3 + rnd(Math.max(1, 18 - a));
+      ans = a + b;
+      row.append(stars(a, 'yellow'), el('span', 'sym', '+'), stars(b, 'blue'), el('span', 'sym', '='), el('span', 'slot', '?'));
+      q = a + ' + ' + b + ' = ?'; speech = a + ' plus ' + b + '. How many altogether?';
+      hint = 'Start at ' + a + ' and count on ' + b + ' more.';
+    } else if (mode === 'missing') {
+      const a = 3 + rnd(8), total = a + 2 + rnd(8);
+      ans = total - a;
+      row.append(stars(a, 'yellow'), el('span', 'sym', '+'), el('span', 'slot', '?'), el('span', 'sym', '= ' + total));
+      q = a + ' + ? = ' + total; speech = a + ' plus what makes ' + total + '?';
+      hint = 'Start at ' + a + ' and count up to ' + total + ' on your fingers.';
+    } else {
+      const a = 3 + rnd(6), b = 2 + rnd(6), c = 1 + rnd(a + b - 1);
+      ans = a + b - c;
+      row.append(el('span', 'sym big', a + ' + ' + b + ' − ' + c + ' ='), el('span', 'slot', '?'));
+      q = 'Two steps!'; speech = a + ' plus ' + b + ', then take away ' + c + '. What do you get?';
+      hint = 'Do it one step at a time. First add, then take away.';
+    }
+    gBody.appendChild(row);
+    setQ(q, speech);
+    const opts = numberOptions(ans);
+    choices(opts.map(v => ({ html: String(v), label: String(v) })), opts.indexOf(ans), hint);
+  }
+
+  // 3. Strategy: weigh up stars (good) against rocks (bad) to pick the best path
+  function lanePuzzle(k) {
+    const n = k === 0 ? 3 : 4;
+    const cost = k === 0 ? 0 : k === 1 ? 1 : 2;
+    let lanes, best = 0;
+    for (let t = 0; t < 400; t++) {
+      lanes = Array.from({ length: n }, () => ({ s: 1 + rnd(5), r: rnd(3) }));
+      if (cost === 0) {
+        const free = lanes.filter(l => l.r === 0);
+        if (!free.length) continue;
+        const top = Math.max(...free.map(l => l.s));
+        if (free.filter(l => l.s === top).length !== 1) continue;
+        if (!lanes.some(l => l.r > 0 && l.s > top)) continue;   // a tempting path with rocks
+        best = lanes.indexOf(free.find(l => l.s === top)); break;
+      } else {
+        const score = lanes.map(l => l.s - l.r * cost);
+        const top = Math.max(...score);
+        if (score.filter(v => v === top).length !== 1) continue;
+        best = score.indexOf(top);
+        if (lanes[best].s === Math.max(...lanes.map(l => l.s))) continue;  // most stars must not be the answer
+        break;
+      }
+    }
+    const STAR = shapeSvg('star', 'yellow');
+    const opts = lanes.map((l, i) => {
+      const slots = shuffle([0, 1, 2, 3, 4, 5, 6, 7]);
+      let html = '';
+      slots.slice(0, l.s).forEach(s => { html += `<span class="lrock" style="top:${3 + s * 12}%;left:${8 + rnd(50)}%">${STAR}</span>`; });
+      slots.slice(l.s, l.s + l.r).forEach(s => { html += `<span class="lrock" style="top:${3 + s * 12}%;left:${8 + rnd(50)}%">${ROCK_SVG}</span>`; });
+      return { html, label: 'Path ' + (i + 1) };
+    });
+    let hint;
+    if (cost === 0) {
+      setQ('Most stars, but no rocks!', 'Which path has the most stars, without hitting any rocks?');
+      hint = 'First, skip every path that has a rock. Then count the stars in the others.';
+    } else {
+      const legend = el('div', 'row legend');
+      legend.innerHTML = `<span class="item sm">${STAR}</span><b>+1</b><span class="item sm">${ROCK_SVG}</span><b>−${cost}</b>`;
+      gBody.appendChild(legend);
+      setQ('Which path scores the most?', 'Every star is worth 1 point. Every rock takes away ' + cost + (cost === 1 ? ' point' : ' points') + '. Which path scores the most?');
+      hint = 'Count the stars, then take away ' + cost + ' for every rock.';
+    }
+    choices(opts, best, hint, 'lane');
+  }
+
+  // 4. Odd one out: notice what the others share (shape, colour, or how many)
+  function oddPuzzle(k) {
+    const ks = shuffle(Object.keys(SHAPES)), cs = shuffle(Object.keys(COLORS));
+    const mode = k === 0 ? pick(['shape', 'colour']) : k === 1 ? 'count' : pick(['shape', 'colour', 'count']);
+    let opts, oddIdx, hint, extra = '';
+    if (mode === 'count') {
+      const n = k >= 2 ? 5 : 4, m = 2 + rnd(3), oddM = m + pick(m <= 2 ? [1] : [-1, 1]);
+      oddIdx = rnd(n);
+      opts = Array.from({ length: n }, (_, i) => {
+        const cnt = i === oddIdx ? oddM : m;
+        let html = '';
+        for (let j = 0; j < cnt; j++) html += shapeSvg(pick(ks), pick(cs));
+        return { html, label: 'Box ' + (i + 1) };
+      });
+      hint = 'Forget the shapes and colours. Count how many things are in each box.';
+      extra = 'tile';
+    } else {
+      const n = k === 0 ? 5 : 6;
+      let items;
+      if (mode === 'shape') {
+        items = Array.from({ length: n - 1 }, (_, i) => ({ k: ks[0], c: cs[i % 6] }));
+        items.push({ k: ks[1], c: cs[rnd(n - 1) % 6] });
+        hint = 'Look at the shapes, not the colours.';
+      } else {
+        items = Array.from({ length: n - 1 }, (_, i) => ({ k: ks[i % 6], c: cs[0] }));
+        items.push({ k: ks[rnd(n - 1) % 6], c: cs[1] });
+        hint = 'Look at the colours, not the shapes.';
+      }
+      const odd = items[n - 1];
+      const order = shuffle(items);
+      oddIdx = order.indexOf(odd);
+      opts = order.map(o => ({ html: shapeSvg(o.k, o.c), label: o.c + ' ' + o.k }));
+    }
+    setQ('Which one does not belong?', 'Which one is different from the others? Think about why.');
+    choices(opts, oddIdx, hint, extra);
+  }
+
+  // 5. Planning: program the rocket's moves, collect the star, then fix the plan if it fails
+  function codePuzzle(k) {
+    const N = k >= 2 ? 6 : 5;
+    const nRocks = k === 0 ? 4 : k === 1 ? 5 : 8;
+    const needStar = k >= 1;
+    const MAX_STEPS = 16;
+    const DIRS = { up: [0, -1, 0], right: [1, 0, 90], down: [0, 1, 180], left: [-1, 0, 270] };
+    const inside = p => p[0] >= 0 && p[1] >= 0 && p[0] < N && p[1] < N;
+    const man = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+    function bfs(from, to, blocked) {
+      const prev = new Map([[from.join(), null]]);
+      const q = [from];
+      while (q.length) {
+        const p = q.shift();
+        if (p.join() === to.join()) break;
+        for (const [name, [dx, dy]] of Object.entries(DIRS)) {
+          const np = [p[0] + dx, p[1] + dy], kk = np.join();
+          if (!inside(np) || blocked.has(kk) || prev.has(kk)) continue;
+          prev.set(kk, [p.join(), name]); q.push(np);
+        }
+      }
+      if (!prev.has(to.join())) return null;
+      const path = []; let kk = to.join();
+      while (prev.get(kk)) { const [pk, name] = prev.get(kk); path.unshift(name); kk = pk; }
+      return path;
+    }
+    let start, goal, star = null, rocks, best = null;
+    for (let tries = 0; tries < 600; tries++) {
+      start = [rnd(N), rnd(N)]; goal = [rnd(N), rnd(N)];
+      if (man(start, goal) < N - 1) continue;
+      if (needStar) {
+        star = [rnd(N), rnd(N)];
+        if (star.join() === start.join() || star.join() === goal.join() || man(start, star) < 2 || man(star, goal) < 2) continue;
+      }
+      const used = [start.join(), goal.join(), star && star.join()];
+      rocks = new Set();
+      while (rocks.size < nRocks) { const c = rnd(N) + ',' + rnd(N); if (!used.includes(c)) rocks.add(c); }
+      if (needStar) {
+        const leg1 = bfs(start, star, new Set([...rocks, goal.join()]));
+        const leg2 = leg1 && bfs(star, goal, rocks);
+        best = leg1 && leg2 ? leg1.concat(leg2) : null;
+      } else best = bfs(start, goal, rocks);
+      if (!best || best.length > MAX_STEPS - 2) { best = null; continue; }
+      if (bfs(start, goal, new Set()).length === best.length && tries < 500) { best = null; continue; } // force a detour
+      break;
+    }
+    if (!best) { rocks = new Set(); star = null; best = bfs(start, goal, rocks); }
+    const pathCells = new Set();
+    { let p = start.slice(); best.forEach(n => { p = [p[0] + DIRS[n][0], p[1] + DIRS[n][1]]; pathCells.add(p.join()); }); }
+
+    const grid = el('div', 'grid');
+    grid.style.gridTemplateColumns = `repeat(${N}, var(--cell))`;
+    const cells = [];
+    for (let i = 0; i < N * N; i++) { const c = el('div', 'cell'); grid.appendChild(c); cells.push(c); }
+    let program = [], running = false, fails = 0;
+
+    function drawGrid(pos, bump, gotStar) {
+      cells.forEach((c, i) => {
+        const x = i % N, y = Math.floor(i / N), kk = x + ',' + y;
+        c.className = 'cell' + (fails >= 3 && pathCells.has(kk) ? ' dot' : '');
+        c.innerHTML = rocks.has(kk) ? ROCK_SVG
+          : (x === goal[0] && y === goal[1]) ? PLANET_SVG
+          : (star && !gotStar && kk === star.join()) ? shapeSvg('star', 'yellow') : '';
+      });
+      const rc = cells[pos[1] * N + pos[0]];
+      rc.innerHTML = ROCKET_SVG;
+      if (bump) rc.classList.add('bump');
+    }
+    const prog = el('div', 'prog');
+    function drawProg(active = -1) {
+      prog.innerHTML = program.length
+        ? program.map((n, i) => `<span class="${i === active ? 'cur' : ''}">${arrowSvg(DIRS[n][2])}</span>`).join('')
+        : '<span class="empty">Tap the arrows to plan the whole path</span>';
+    }
+    const pad = el('div', 'pad');
+    const btns = [];
+    ['left', 'up', 'down', 'right'].forEach((n, idx) => {
+      const b = el('button', 'choice', arrowSvg(DIRS[n][2]));
+      b.type = 'button'; b.setAttribute('aria-label', 'Add ' + n);
+      b.addEventListener('click', () => {
+        if (running || gateDone || program.length >= MAX_STEPS) return;
+        program.push(n); drawProg(); gMsg.textContent = '';
+        beep(587 + idx * 70, .07, 'sine', .1);
+      });
+      pad.appendChild(b); btns.push(b);
+    });
+    const undo = el('button', 'choice small', 'Undo');
+    undo.type = 'button';
+    undo.addEventListener('click', () => { if (running || gateDone) return; program.pop(); drawProg(); });
+    const go = el('button', 'choice small go-btn', 'Go!');
+    go.type = 'button';
+    go.addEventListener('click', run);
+    pad.append(undo, go); btns.push(undo, go);
+    gBody.append(grid, prog, pad);
+    drawGrid(start); drawProg();
+    if (star) setQ('Grab the star, then land on the planet!', 'Plan a path that picks up the star first, then lands on the planet. Tap the arrows, then press Go!');
+    else setQ('Plan the path to the planet!', 'Rocks are in the way! Plan a path around them to the planet. Tap the arrows, then press Go!');
+
+    function fail(msg) {
+      fails++;
+      if (fails === 2) msg += ' Hint: start by going ' + best[0] + '.';
+      if (fails >= 3) msg += ' Follow the yellow dots.';
+      gMsg.textContent = msg; say(msg);
+      setTimeout(() => { running = false; btns.forEach(b => b.disabled = false); drawGrid(start); drawProg(); }, 1400);
+    }
+    function run() {
+      if (running || gateDone) return;
+      if (!program.length) { gMsg.textContent = 'Tap the arrows first!'; say('Tap the arrows first!'); return; }
+      running = true; btns.forEach(b => b.disabled = true); gMsg.textContent = '';
+      let pos = start.slice(), i = 0, gotStar = false;
+      const step = () => {
+        if (i >= program.length) {
+          if (pos.join() === goal.join() && (!star || gotStar)) { drawProg(); gateSolved(); return; }
+          if (pos.join() === goal.join()) return fail('You landed, but you forgot the star! Plan a path through the star.');
+          return fail('So close! The rocket stopped before the planet. Add more arrows.');
+        }
+        drawProg(i);
+        const np = [pos[0] + DIRS[program[i]][0], pos[1] + DIRS[program[i]][1]];
+        if (!inside(np) || rocks.has(np.join())) {
+          drawGrid(pos, true, gotStar); beep(160, .25, 'square', .08);
+          return fail(inside(np) ? 'Bump! A rock is in the way. Fix your plan.' : 'Whoops, that flies off the map! Fix your plan.');
+        }
+        pos = np;
+        if (star && pos.join() === star.join() && !gotStar) { gotStar = true; beep(1319, .12, 'triangle', .15); }
+        drawGrid(pos, false, gotStar); beep(523 + i * 30, .08, 'triangle', .12);
+        i++; setTimeout(step, 420);
+      };
+      setTimeout(step, 250);
+    }
+  }
+
+  // 6. Memory: watch the planets light up, then repeat the order
+  function memoryPuzzle(k) {
+    const count = k >= 1 ? 6 : 4;
+    const len = Math.min(8, 4 + k);
+    const names = ['red', 'blue', 'yellow', 'green', 'purple', 'orange'].slice(0, count);
+    const tones = [523, 587, 659, 784, 880, 988];
+    const seq = [];
+    while (seq.length < len) { const v = rnd(count); if (v !== seq[seq.length - 1]) seq.push(v); }
+    const wrap = el('div', 'mem');
+    wrap.style.gridTemplateColumns = `repeat(${count === 4 ? 2 : 3}, auto)`;
+    let input = [], showing = true, misses = 0;
+    const myId = gateId, live = () => myId === gateId && !gateCard.hidden;
+    const btns = names.map((c, i) => {
+      const b = el('button', 'choice memb', `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="${COLORS[c]}" stroke="#0b1033" stroke-width="1.4"/><circle cx="9" cy="9" r="2.2" fill="#fff" opacity=".55"/></svg>`);
+      b.type = 'button'; b.setAttribute('aria-label', c + ' planet');
+      b.addEventListener('click', () => {
+        if (showing || gateDone) return;
+        flash(i);
+        if (i === seq[input.length]) {
+          input.push(i);
+          if (input.length === len) gateSolved();
+        } else {
+          misses++; input = [];
+          const m = misses >= 2 ? 'Oops! Watch again, slower this time. Try saying the colours out loud.' : 'Oops! Watch again.';
+          gMsg.textContent = m; say(m);
+          setTimeout(() => live() && play(misses >= 2 ? 950 : 700), 1800);
+        }
+      });
+      wrap.appendChild(b);
+      return b;
+    });
+    gBody.appendChild(wrap);
+    function flash(i) {
+      btns[i].classList.add('lit'); beep(tones[i], .3, 'sine', .15);
+      setTimeout(() => btns[i].classList.remove('lit'), 380);
+    }
+    function play(gapMs = 700) {
+      showing = true; btns.forEach(b => b.disabled = true);
+      gMsg.textContent = 'Watch carefully... (' + len + ' planets)';
+      seq.forEach((v, j) => setTimeout(() => live() && flash(v), 600 + j * gapMs));
+      setTimeout(() => {
+        if (!live()) return;
+        showing = false; btns.forEach(b => b.disabled = false);
+        gMsg.textContent = 'Your turn!'; say('Your turn!');
+      }, 600 + len * gapMs + 200);
+    }
+    setQ('Remember the order!', 'Watch the planets light up. Then tap them in the same order.');
+    setTimeout(() => live() && play(), 3200);
+  }
+
+  function winTrophy() {
+    trophies++; gemCount = 0; saveGems(); renderGems();
+    paused = true;
+    document.getElementById('trophycount').textContent = 'Trophy number ' + trophies;
+    [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, .2, 'triangle', .18), i * 120));
+    for (let i = 0; i < 4; i++) burst(Math.random() * W, Math.random() * H * 0.6, ['#ffd23f', '#f472d0', '#4cc9f0', '#7ae582'][i], 30);
+    setTimeout(() => { trophyCard.hidden = false; document.getElementById('resume').focus(); }, 500);
+  }
+
+  function update(dt) {
+    t += dt;
+    for (const b of bg) { b.y += b.v * dt * 0.08 * (playing && !paused ? 1.6 * speed() : 0.6); if (b.y > 1) { b.y = 0; b.x = Math.random(); } }
+    for (const p of sparks) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; p.life -= dt; }
+    sparks = sparks.filter(p => p.life > 0);
+    if (!playing || paused) return;
+
+    // Fuel drains; with an empty tank the rocket only drifts slowly
+    fuel = Math.max(0, fuel - dt * (1 + (level - 1) * 0.06) / TANK_SECONDS);
+    renderFuel();
+    const power = fuel > 0 ? 1 : 0.18;
+
+    // Move ship
+    const boost = Math.sqrt(speed());   // steering gets quicker too, so it stays playable
+    const kSpeed = 380 * power * boost;
+    if (keys.ArrowLeft || keys.a) ship.tx = (ship.tx ?? ship.x) - kSpeed * dt;
+    if (keys.ArrowRight || keys.d) ship.tx = (ship.tx ?? ship.x) + kSpeed * dt;
+    if (ship.tx != null) {
+      ship.tx = Math.min(Math.max(ship.tx, 30), W - 30);
+      ship.x += (ship.tx - ship.x) * Math.min(1, dt * 10 * power * boost);
+    }
+    ship.wobble = Math.max(0, ship.wobble - dt);
+
+    // Level up every LEVEL_SECONDS
+    levelTime += dt; runTime += dt;
+    // End of the level: a Space Gate puzzle must be solved to move on
+    if (levelTime >= LEVEL_SECONDS) { levelTime = 0; openGate(); return; }
+
+    // Canyon walls: every so often the space between them gets narrower
+    const scroll = 90 * speed();
+    for (const w of walls) w.y += scroll * dt;
+    walls = walls.filter(w => w.y < H + SEG * 2);
+    nextSqueeze -= dt;
+    if (squeezeLeft > 0) squeezeLeft -= dt;
+    else if (nextSqueeze <= 0) {
+      squeezeLeft = 6 + Math.random() * 4 + level * 0.4;
+      nextSqueeze = squeezeLeft + Math.max(8, 22 + Math.random() * 10 - level * 1.2);
+      cheer('Tight squeeze!', 'level');
+      beep(220, .3, 'sawtooth', .05);
+    }
+    const maxInset = Math.max(0, (W - Math.max(150, ship.size * 4.5)) / 2);
+    const targetInset = squeezeLeft > 0 ? Math.min(maxInset, W * (0.14 + level * 0.025)) : 0;
+    wallInset += (targetInset - wallInset) * Math.min(1, dt * 0.8);
+    let topY = walls.length ? walls[walls.length - 1].y : H + SEG;
+    while (topY > -SEG * 2) {
+      topY -= SEG; rowIdx++;
+      const wander = Math.sin(rowIdx * 0.07) * wallInset * 0.45;
+      const jag = wallInset > 4 ? 8 : 0;
+      walls.push({
+        y: topY,
+        l: Math.max(0, wallInset + wander + (Math.random() - .5) * jag),
+        r: W - Math.max(0, wallInset - wander + (Math.random() - .5) * jag)
+      });
+    }
+    // the rocket can't fly through the walls
+    {
+      const ln = laneAt(ship.y), pad = ship.size * 0.8;
+      const lo = ln.l + pad, hi = Math.max(lo, ln.r - pad);
+      ship.x = Math.min(Math.max(ship.x, lo), hi);
+      if (ship.tx != null) ship.tx = Math.min(Math.max(ship.tx, lo), hi);
+    }
+
+    // Spawn — fuel cans come sooner when the tank is low
+    nextStar -= dt; nextRock -= dt; nextCan -= dt;
+    if (nextStar <= 0) { spawnStar(); nextStar = (0.7 + Math.random() * 0.6) / Math.sqrt(speed()); }
+    if (nextRock <= 0) {
+      spawnRock();
+      if (level >= 6 && Math.random() < (level - 5) * 0.12) spawnRock();  // sometimes two at once
+      nextRock = (2.6 + Math.random() * 1.6) / rockRate();
+    }
+    if (nextCan <= 0 && cans.length === 0) { spawnCan(); nextCan = fuel < 0.3 ? 2.5 : 9 + Math.random() * 4; }
+    if (fuel < 0.3 && nextCan > 3) nextCan = 3;
+    nextGem -= dt;
+    if (nextGem <= 0) { spawnGem(); nextGem = gemWait(); }
+
+    // Stars
+    for (const s of stars) {
+      s.y += s.vy * speed() * dt; s.spin += dt * 2;
+      { const ln = laneAt(s.y); s.x = Math.min(Math.max(s.x, ln.l + 22), ln.r - 22); }
+      if (Math.hypot(s.x - ship.x, s.y - ship.y) < s.r + ship.size * 0.8) {
+        s.dead = true; score++; scoreEl.textContent = score;
+        burst(s.x, s.y, '#ffd23f');
+        beep(notes[score % notes.length], 0.14, 'triangle', 0.2);
+        if (score % 10 === 0) {
+          colorIdx = (colorIdx + 1) % shipColors.length;
+          cheer(['Super!', 'Wow!', 'Amazing!', 'Star hero!', 'Zoom zoom!'][(score / 10 - 1) % 5]);
+          burst(ship.x, ship.y, shipColors[colorIdx], 30);
+          [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, .18, 'triangle', .18), i * 110));
+        }
+      }
+      if (s.y > H + 40) s.dead = true;
+    }
+    stars = stars.filter(s => !s.dead);
+
+    // Fuel cans
+    for (const c of cans) {
+      c.y += c.vy * speed() * dt; c.sway += dt * 2;
+      { const ln = laneAt(c.y); c.x = Math.min(Math.max(c.x, ln.l + 32), ln.r - 32); }
+      const cx = c.x + Math.sin(c.sway) * 12;
+      if (Math.hypot(cx - ship.x, c.y - ship.y) < 22 + ship.size * 0.8) {
+        c.dead = true; fuel = 1; renderFuel();
+        burst(cx, c.y, '#7ae582', 22);
+        cheer('Tank full!', 'fuel');
+        [392, 523, 659].forEach((f, i) => setTimeout(() => beep(f, .14, 'sine', .18), i * 90));
+      }
+      if (c.y > H + 50) c.dead = true;
+    }
+    cans = cans.filter(c => !c.dead);
+
+    // Rare gems
+    for (const g of gemsFalling) {
+      g.y += g.vy * speed() * dt; g.sway += dt * 1.6;
+      { const ln = laneAt(g.y); g.x = Math.min(Math.max(g.x, ln.l + 44), ln.r - 44); }
+      const gx = g.x + Math.sin(g.sway) * 18;
+      if (Math.random() < dt * 8) sparks.push({ x: gx + (Math.random() - .5) * 30, y: g.y + (Math.random() - .5) * 30, vx: 0, vy: -20, life: 0.5, color: '#f9a8e8' });
+      if (Math.hypot(gx - ship.x, g.y - ship.y) < 22 + ship.size * 0.8) {
+        g.dead = true; gemCount++; renderGems(); saveGems();
+        burst(gx, g.y, '#f472d0', 30);
+        if (gemCount >= GEMS_FOR_TROPHY) winTrophy();
+        else {
+          cheer('A gem! ' + gemCount + ' of ' + GEMS_FOR_TROPHY, 'gem');
+          [1047, 1319, 1568, 2093].forEach((f, i) => setTimeout(() => beep(f, .15, 'sine', .15), i * 80));
+        }
+      }
+      if (g.y > H + 50) g.dead = true;
+    }
+    gemsFalling = gemsFalling.filter(g => !g.dead);
+    if (paused) return;
+
+    // Rocks: each bump costs one heart; a short wobble keeps it to one heart per bump
+    for (const r of rocks) {
+      r.y += r.vy * speed() * dt; r.rot += r.vr * dt;
+      r.x += (r.vx || 0) * dt;
+      {
+        const ln = laneAt(r.y);
+        if (r.x < ln.l + r.r) { r.x = ln.l + r.r; if (r.vx) r.vx = Math.abs(r.vx); }
+        if (r.x > ln.r - r.r) { r.x = ln.r - r.r; if (r.vx) r.vx = -Math.abs(r.vx); }
+      }
+      if (!r.hit && ship.wobble <= 0 && Math.hypot(r.x - ship.x, r.y - ship.y) < r.r + ship.size * 0.6) {
+        r.hit = true; ship.wobble = 1.2;
+        lives--; renderLives();
+        burst(r.x, r.y, '#c9a690', 12);
+        burst(ship.x, ship.y, '#ff5d73', 10);
+        beep(160, .25, 'square', .08);
+        if (lives <= 0) { gameOver(); break; }
+      }
+      if (r.y > H + 50) r.dead = true;
+    }
+    rocks = rocks.filter(r => !r.dead);
+  }
+
+  function drawStar(x, y, r, rot) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(rot) * 0.3);
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rr = i % 2 ? r * 0.45 : r, a = -Math.PI / 2 + i * Math.PI / 5;
+      ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#ffd23f'; ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 16; ctx.fill();
+    ctx.shadowBlur = 0; ctx.lineWidth = 2.5; ctx.strokeStyle = '#c2410c'; ctx.stroke();
+    ctx.fillStyle = '#3b0a14';
+    ctx.beginPath(); ctx.arc(-r * .18, -r * .05, r * .07, 0, 7); ctx.arc(r * .18, -r * .05, r * .07, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, r * .08, r * .16, 0.2, Math.PI - 0.2); ctx.lineWidth = 2; ctx.strokeStyle = '#3b0a14'; ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCan(c) {
+    const x = c.x + Math.sin(c.sway) * 12, y = c.y;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(c.sway) * 0.15);
+    // glow
+    ctx.shadowColor = '#7ae582'; ctx.shadowBlur = 18;
+    ctx.fillStyle = '#7ae582';
+    ctx.beginPath(); ctx.roundRect(-16, -18, 32, 38, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 3; ctx.strokeStyle = '#1b6b3a'; ctx.stroke();
+    // spout
+    ctx.fillStyle = '#1b6b3a'; ctx.fillRect(4, -26, 8, 9);
+    // label: a big F
+    ctx.fillStyle = '#1b6b3a';
+    ctx.font = '800 22px "Baloo 2", "Trebuchet MS", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('F', 0, 3);
+    ctx.restore();
+  }
+
+  function drawGem(g) {
+    const x = g.x + Math.sin(g.sway) * 18, y = g.y;
+    const pulse = reduced ? 1 : 1 + Math.sin(t * 6) * 0.08;
+    ctx.save(); ctx.translate(x, y); ctx.scale(pulse, pulse);
+    ctx.shadowColor = '#f472d0'; ctx.shadowBlur = 26;
+    ctx.beginPath();
+    ctx.moveTo(-13, -15); ctx.lineTo(13, -15); ctx.lineTo(24, -3); ctx.lineTo(0, 24); ctx.lineTo(-24, -3); ctx.closePath();
+    ctx.fillStyle = '#f472d0'; ctx.fill();
+    ctx.shadowBlur = 0; ctx.lineWidth = 3; ctx.strokeStyle = '#6b1a8a'; ctx.stroke();
+    // facets
+    ctx.beginPath(); ctx.moveTo(-24, -3); ctx.lineTo(24, -3); ctx.moveTo(-6, -15); ctx.lineTo(-10, -3); ctx.lineTo(0, 24); ctx.lineTo(10, -3); ctx.lineTo(6, -15);
+    ctx.lineWidth = 1.6; ctx.strokeStyle = '#fbcfe8'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-8, -12); ctx.lineTo(-3, -12); ctx.lineTo(-6, -6); ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.restore();
+  }
+
+  function drawWalls() {
+    if (walls.length < 2 || !walls.some(w => w.l > 1 || w.r < W - 1)) return;
+    const bottom = walls[0].y + SEG, top = walls[walls.length - 1].y;
+    for (const side of ['l', 'r']) {
+      const edgeX = side === 'l' ? 0 : W;
+      ctx.beginPath();
+      ctx.moveTo(edgeX, bottom);
+      for (const w of walls) ctx.lineTo(w[side], w.y);
+      ctx.lineTo(edgeX, top);
+      ctx.closePath();
+      ctx.fillStyle = '#3b2a6b'; ctx.fill();
+      ctx.lineWidth = 4; ctx.strokeStyle = '#7c5cd6'; ctx.stroke();
+    }
+    // little craters on the walls
+    ctx.fillStyle = '#2a1d52';
+    for (let i = 0; i < walls.length; i += 5) {
+      const w = walls[i];
+      if (w.l > 18) { ctx.beginPath(); ctx.arc(w.l * 0.45, w.y, Math.min(7, w.l * 0.18), 0, 7); ctx.fill(); }
+      if (W - w.r > 18) { ctx.beginPath(); ctx.arc(W - (W - w.r) * 0.45, w.y + 30, Math.min(7, (W - w.r) * 0.18), 0, 7); ctx.fill(); }
+    }
+  }
+
+  function drawRock(r) {
+    ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.rot);
+    ctx.beginPath();
+    r.bumps.forEach((b, i) => { const a = i / r.bumps.length * Math.PI * 2; ctx.lineTo(Math.cos(a) * r.r * b, Math.sin(a) * r.r * b); });
+    ctx.closePath();
+    ctx.fillStyle = '#9a7b6a'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#5c4033'; ctx.stroke();
+    ctx.fillStyle = '#7a5f50';
+    ctx.beginPath(); ctx.arc(-r.r * .3, -r.r * .2, r.r * .18, 0, 7); ctx.arc(r.r * .25, r.r * .25, r.r * .13, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawShip() {
+    const s = ship.size, c = shipColors[colorIdx];
+    const tilt = ship.tx != null ? Math.max(-0.35, Math.min(0.35, (ship.tx - ship.x) / 120)) : 0;
+    const wob = ship.wobble > 0 ? Math.sin(ship.wobble * 30) * 0.4 * ship.wobble : 0;
+    // blink while recovering from a bump
+    if (ship.wobble > 0 && !reduced && Math.floor(ship.wobble * 12) % 2) return;
+    ctx.save(); ctx.translate(ship.x, ship.y); ctx.rotate(tilt + wob);
+    // flame shrinks with fuel; just a puff when empty
+    const f = (reduced ? 1 : 0.8 + Math.sin(t * 30) * 0.2) * (fuel > 0 ? 0.5 + fuel * 0.5 : 0.15);
+    ctx.beginPath(); ctx.moveTo(-s * .35, s * .7); ctx.quadraticCurveTo(0, s * (0.8 + 1.1 * f), s * .35, s * .7); ctx.fillStyle = '#ff9f1c'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-s * .18, s * .7); ctx.quadraticCurveTo(0, s * (0.8 + .6 * f), s * .18, s * .7); ctx.fillStyle = '#ffe066'; ctx.fill();
+    // fins
+    ctx.fillStyle = '#3a86ff';
+    ctx.beginPath(); ctx.moveTo(-s * .45, s * .1); ctx.lineTo(-s * .85, s * .8); ctx.lineTo(-s * .4, s * .65); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(s * .45, s * .1); ctx.lineTo(s * .85, s * .8); ctx.lineTo(s * .4, s * .65); ctx.fill();
+    // body
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 1.1);
+    ctx.bezierCurveTo(s * .7, -s * .5, s * .55, s * .5, s * .4, s * .75);
+    ctx.lineTo(-s * .4, s * .75);
+    ctx.bezierCurveTo(-s * .55, s * .5, -s * .7, -s * .5, 0, -s * 1.1);
+    ctx.fillStyle = c; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#2b0b3f'; ctx.stroke();
+    // window
+    ctx.beginPath(); ctx.arc(0, -s * .2, s * .26, 0, 7);
+    ctx.fillStyle = '#bde0fe'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#fdf6e3'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(-s * .08, -s * .28, s * .07, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (const b of bg) {
+      ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(t * b.v * 3 + b.x * 10));
+      ctx.fillStyle = '#fdf6e3';
+      // background stars stretch into streaks as the rocket speeds up
+      const streak = playing ? (speed() - 1) * b.v * 16 : 0;
+      ctx.fillRect(b.x * W, b.y * H - streak, b.s, b.s + streak);
+    }
+    ctx.globalAlpha = 1;
+    // a friendly planet
+    ctx.beginPath(); ctx.arc(W * 0.86, H * 0.18, Math.min(W, H) * 0.08, 0, 7); ctx.fillStyle = '#5a4fcf'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(W * 0.86, H * 0.18, Math.min(W, H) * 0.13, Math.min(W, H) * 0.03, -0.3, 0, 7);
+    ctx.lineWidth = 3; ctx.strokeStyle = '#c77dff'; ctx.stroke();
+
+    drawWalls();
+    rocks.forEach(drawRock);
+    cans.forEach(drawCan);
+    stars.forEach(s => drawStar(s.x, s.y, s.r, s.spin));
+    gemsFalling.forEach(drawGem);
+    for (const p of sparks) { ctx.globalAlpha = Math.max(0, p.life / 0.7); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    drawShip();
+
+    if (playing) {
+      ctx.fillStyle = '#fdf6e3'; ctx.globalAlpha = 0.75;
+      ctx.font = '800 20px "Baloo 2", "Trebuchet MS", sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText('Level ' + (gateNum + 1) + '   Speed ' + speed().toFixed(1) + 'x', 16, 12);
+      ctx.globalAlpha = 1;
+      // Countdown to the next Space Gate
+      const left = Math.max(0, LEVEL_SECONDS - levelTime);
+      const bw = Math.min(180, W * 0.42), frac = Math.min(1, levelTime / LEVEL_SECONDS);
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath(); ctx.roundRect(16, 40, bw, 10, 5); ctx.fill();
+      ctx.fillStyle = left <= 5 ? '#ffd23f' : '#4cc9f0';
+      ctx.beginPath(); ctx.roundRect(16, 40, Math.max(10, bw * frac), 10, 5); ctx.fill();
+      ctx.fillStyle = '#fdf6e3';
+      ctx.font = '800 16px "Baloo 2", "Trebuchet MS", sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Gate in ' + Math.ceil(left) + 's', 24 + bw, 45);
+    }
+
+    if (playing && fuel <= 0) {
+      ctx.fillStyle = '#ff9f1c';
+      ctx.font = '800 26px "Baloo 2", "Trebuchet MS", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.globalAlpha = reduced ? 1 : 0.6 + 0.4 * Math.abs(Math.sin(t * 4));
+      ctx.fillText('Out of fuel!', W / 2, H * 0.28);
+      ctx.fillText('Catch a green can!', W / 2, H * 0.28 + 32);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000 || 0); last = now;
+    update(dt); draw();
+    requestAnimationFrame(loop);
+  }
+
+  // Sample frame behind the start card
+  addEventListener('resize', resize);
+  resize();
+  ship.x = W / 2;
+  renderLives(); renderFuel(); renderGems();
+  gemsFalling.push({ x: W * 0.45, y: H * 0.2, vy: 0, sway: 0 });
+  stars.push({ x: W * 0.3, y: H * 0.35, r: 18, spin: 0, vy: 0 });
+  stars.push({ x: W * 0.65, y: H * 0.55, r: 18, spin: 1, vy: 0 });
+  cans.push({ x: W * 0.72, y: H * 0.3, vy: 0, sway: 0 });
+  rocks.push({ x: W * 0.2, y: H * 0.7, r: 24, rot: 0, vr: 0, vy: 0, bumps: [1,.9,1.05,.85,1,.95,1.1,.9,1] });
+  requestAnimationFrame(loop);
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  addEventListener('load', () => navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}));
+}
+</script>
+</body>
+</html>

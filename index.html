@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kids Brain Games</title>
+<meta name="description" content="Fun games that practise patterns, planning, memory and problem solving.">
+<meta name="theme-color" content="#1b2a8f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Brain Games">
+<link rel="preload" href="fonts/baloo2-800.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: "Baloo 2"; font-weight: 600; font-display: swap; src: url("fonts/baloo2-600.woff2") format("woff2"); }
+@font-face { font-family: "Baloo 2"; font-weight: 800; font-display: swap; src: url("fonts/baloo2-800.woff2") format("woff2"); }
+
+/* Layout: a bold arcade-cabinet header band, then a wrapping grid of chunky game cards (one column on phones). */
+:root {
+  --band: #1b2a8f;
+  --band-ink: #fdf6e3;
+  --bg: #eef3ff;
+  --card: #ffffff;
+  --ink: #18204a;
+  --muted: #56608f;
+  --line: #c9d3f5;
+  --yellow: #ffd23f;
+  --font: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0b1033; --card: #161f55; --ink: #fdf6e3; --muted: #aab3e0; --line: #2b3780; color-scheme: dark; }
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font); font-weight: 600; font-size: 1.05rem; line-height: 1.45;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 100vh;
+}
+.band {
+  background: var(--band); color: var(--band-ink);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 28px);
+  padding-bottom: 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  position: relative; overflow: hidden;
+}
+.band::after {
+  /* pixel-step edge into the page */
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 24px;
+  background:
+    linear-gradient(90deg, var(--bg) 50%, transparent 0) 0 12px / 48px 12px repeat-x,
+    linear-gradient(var(--bg), var(--bg)) 0 100% / 100% 12px no-repeat;
+}
+.inner { max-width: 1040px; margin: 0 auto; }
+.band h1 {
+  margin: 0; font-weight: 800; line-height: 1;
+  font-size: clamp(2.6rem, 10vw, 4.4rem); letter-spacing: -0.01em; text-wrap: balance;
+}
+.band h1 span { color: var(--yellow); }
+.band p { margin: 10px 0 0; font-size: clamp(1.1rem, 3.6vw, 1.35rem); max-width: 34ch; opacity: .92; }
+.dots { position: absolute; inset: 0; pointer-events: none; }
+.dots i { position: absolute; width: 4px; height: 4px; background: var(--band-ink); opacity: .55; }
+
+main {
+  padding-top: 8px; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.label { font-size: .85rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
+
+.game {
+  display: flex; flex-direction: column; min-width: 0;
+  background: var(--card); color: inherit; text-decoration: none;
+  border: 3px solid var(--line); border-radius: 22px; overflow: hidden;
+  box-shadow: 0 8px 0 var(--accent-dark);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.game:hover { transform: translateY(-3px); box-shadow: 0 11px 0 var(--accent-dark); }
+.game:active { transform: translateY(5px); box-shadow: 0 3px 0 var(--accent-dark); }
+.game:focus-visible { outline: 4px solid var(--accent); outline-offset: 4px; }
+.thumb { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #0b1033; max-width: 100%; }
+.body { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 18px; flex: 1; }
+.game h2 { margin: 0; font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+.blurb { margin: 0; color: var(--muted); }
+.skills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.skills li {
+  font-size: .85rem; font-weight: 800; padding: 2px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--ink);
+}
+.play {
+  margin-top: auto; align-self: flex-start;
+  background: var(--accent); color: #18204a;
+  font-weight: 800; font-size: 1.25rem; padding: 6px 26px; border-radius: 999px;
+}
+.empty { color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .game { transition: none; } }
+</style>
+</head>
+<body>
+<header class="band">
+  <div class="dots" id="dots" aria-hidden="true"></div>
+  <div class="inner">
+    <h1>Brain <span>Games</span></h1>
+    <p>Fun games that make you think. Spot patterns, plan ahead and remember!</p>
+  </div>
+</header>
+
+<main>
+  <div class="inner">
+    <p class="label">Pick a game</p>
+    <div class="grid" id="games"><p class="empty">Loading games…</p></div>
+  </div>
+</main>
+
+<script>
+// Add new games here: one entry per game folder.
+const GAMES = [
+  {
+    slug: 'rocket-star-catcher',
+    title: 'Rocket Star Catcher',
+    blurb: 'Fly through space catching stars and dodging rocks. Solve a Space Gate puzzle at the end of every level.',
+    skills: ['Patterns', 'Numbers', 'Planning', 'Memory'],
+    accent: '#ffd23f', accentDark: '#c2410c'
+  }
+];
+
+const grid = document.getElementById('games');
+grid.innerHTML = '';
+for (const g of GAMES) {
+  const a = document.createElement('a');
+  a.className = 'game';
+  a.href = g.slug + '/';
+  a.style.setProperty('--accent', g.accent);
+  a.style.setProperty('--accent-dark', g.accentDark);
+  a.innerHTML = `
+    <img class="thumb" src="thumbs/${g.slug}.jpg" alt="" loading="lazy" width="600" height="450">
+    <div class="body">
+      <h2></h2>
+      <p class="blurb"></p>
+      <ul class="skills">${g.skills.map(() => '<li></li>').join('')}</ul>
+      <span class="play" aria-hidden="true">Play</span>
+    </div>`;
+  a.querySelector('h2').textContent = g.title;
+  a.querySelector('.blurb').textContent = g.blurb;
+  a.querySelectorAll('.skills li').forEach((li, i) => li.textContent = g.skills[i]);
+  grid.appendChild(a);
+}
+
+// a few pixel stars in the header
+const dots = document.getElementById('dots');
+for (let i = 0; i < 26; i++) {
+  const d = document.createElement('i');
+  d.style.left = Math.random() * 100 + '%';
+  d.style.top = Math.random() * 85 + '%';
+  dots.appendChild(d);
+}
+
+if ('serviceWorker' in navigator) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
