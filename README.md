@@ -10,6 +10,7 @@ Live: https://fahad-hasan.github.io/kids-brain-games/
 | Folder | Game | Skills |
 |---|---|---|
 | `rocket-star-catcher/` | Rocket Star Catcher | Patterns, numbers, planning, memory |
+| `block-quest/` | Block Quest | Planning (dig the cheapest tunnel), rules from examples (crafting), cause and effect (water flow) |
 
 ## Adding a game
 

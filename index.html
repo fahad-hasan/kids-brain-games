@@ -85,7 +85,7 @@ main {
 .game:hover { transform: translateY(-3px); box-shadow: 0 11px 0 var(--accent-dark); }
 .game:active { transform: translateY(5px); box-shadow: 0 3px 0 var(--accent-dark); }
 .game:focus-visible { outline: 4px solid var(--accent); outline-offset: 4px; }
-.thumb { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #0b1033; max-width: 100%; }
+.thumb { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; background: #0b1033; max-width: 100%; }
 .body { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 18px; flex: 1; }
 .game h2 { margin: 0; font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
 .blurb { margin: 0; color: var(--muted); }
@@ -128,6 +128,13 @@ const GAMES = [
     blurb: 'Fly through space catching stars and dodging rocks. Solve a Space Gate puzzle at the end of every level.',
     skills: ['Patterns', 'Numbers', 'Planning', 'Memory'],
     accent: '#ffd23f', accentDark: '#c2410c'
+  },
+  {
+    slug: 'block-quest',
+    title: 'Block Quest',
+    blurb: 'Help Pip dig to gems, work out crafting recipes and send water to the crops. Every puzzle needs a plan!',
+    skills: ['Planning', 'Rules', 'Cause and effect', 'Counting'],
+    accent: '#5fb34a', accentDark: '#2f6b23'
   }
 ];
 

@@ -1,6 +1,6 @@
 // Kids Brain Games service worker: caches every game so the whole collection plays offline.
 // When you add a game or change any file: add new files to FILES and bump VERSION.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'kids-brain-games-' + VERSION;
 const FILES = [
   './',
@@ -15,7 +15,11 @@ const FILES = [
   './thumbs/rocket-star-catcher.jpg',
   './rocket-star-catcher/',
   './rocket-star-catcher/index.html',
-  './rocket-star-catcher/icon.png'
+  './rocket-star-catcher/icon.png',
+  './thumbs/block-quest.jpg',
+  './block-quest/',
+  './block-quest/index.html',
+  './block-quest/icon.png'
 ];
 
 self.addEventListener('install', e => {
