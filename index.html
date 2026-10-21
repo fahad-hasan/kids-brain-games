@@ -224,16 +224,16 @@ const GAMES = [
   {
     slug: 'brickville',
     title: 'Brickville',
-    blurb: 'Plan your obby run move by move, crack escape-room locks with clues, and grow a coin tycoon in the fewest days.',
-    skills: ['Sequencing', 'Deduction', 'Money maths', 'Planning ahead'],
+    blurb: 'Plan an obby run move by move, crack escape-room locks, grow a coin tycoon, cross a colour-switching floor and defend the castle.',
+    skills: ['Sequencing', 'Deduction', 'Money maths', 'Timing', 'Strategy'],
     accent: '#3a8dff', accentDark: '#1d2340',
     stats: id => {
       const save = KBG.get('brickville', {}, id);
-      const areas = ['obby', 'escape', 'tycoon'];
+      const areas = ['obby', 'escape', 'tycoon', 'switch', 'defence'];
       const stars = areas.reduce((t, a) => t + (save[a] || []).reduce((s, v) => s + (v || 0), 0), 0);
       const levels = areas.reduce((t, a) => t + (save[a] || []).filter(Boolean).length, 0);
       const endless = Object.values(save.endless || {}).reduce((t, v) => t + v, 0);
-      return { played: levels > 0, stars, levels, endless, text: `${stars} / 90 stars · ${levels} of 30 levels` + (endless ? ` · ${endless} endless` : '') };
+      return { played: levels > 0, stars, levels, endless, text: `${stars} / 150 stars · ${levels} of 50 levels` + (endless ? ` · ${endless} endless` : '') };
     },
     board: [['Brick stars', st => st.stars], ['Brick endless', st => st.endless]]
   }

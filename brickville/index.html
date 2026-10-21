@@ -165,7 +165,7 @@ button { font: inherit; color: inherit; }
 /* OBBY */
 .course {
   --cols: 12;
-  --c: clamp(20px, min(calc((100vw - 44px) / var(--cols)), calc((100dvh - 430px) / 5)), 48px);
+  --c: clamp(20px, min(calc((min(100vw, 672px) - 50px) / var(--cols)), calc((100dvh - 430px) / 5)), 48px);
   position: relative; display: grid; grid-template-columns: repeat(var(--cols), var(--c)); grid-template-rows: repeat(5, var(--c));
   padding: 6px; border: 3px solid var(--line); border-radius: 14px; background: linear-gradient(#bfe6ff, #e9f7ff); max-width: 100%;
 }
@@ -246,6 +246,37 @@ button { font: inherit; color: inherit; }
 .item .info { font-size: .95rem; color: var(--muted); font-weight: 800; }
 .item .btn { padding: 4px 14px; font-size: 1.05rem; }
 .item.hinted { box-shadow: 0 5px 0 var(--line), 0 0 0 4px var(--yellow); }
+/* COLOUR SWITCH */
+.floor { --c: clamp(30px, min(calc((100vw - 60px - (var(--n) - 1) * 4px) / var(--n)), calc((100dvh - 390px) / var(--n))), 62px); display: grid; grid-template-columns: repeat(var(--n), var(--c)); gap: 4px; padding: 8px; border: 3px solid var(--line); border-radius: 16px; background: #1d2340; max-width: 100%; }
+.tile { width: var(--c); height: var(--c); padding: 0; border: none; border-radius: 8px; cursor: pointer; display: grid; place-items: center; position: relative; }
+.tile.wall { --b: #4b5578; cursor: default; }
+.tile.hole { background: repeating-linear-gradient(45deg, #2b3a6b 0 5px, #1d2340 5px 10px); }
+.tile.grey { --b: #d7dce8; }
+.tile.up { transform: translateY(-2px); box-shadow: inset 0 0 0 2px rgba(0,0,0,.25), 0 3px 0 rgba(0,0,0,.45); }
+.tile.down { opacity: .28; outline: 2px dashed rgba(255,255,255,.7); outline-offset: -4px; }
+.tile.hint { outline: 4px solid var(--yellow); outline-offset: -2px; box-shadow: 0 0 16px var(--yellow); opacity: 1; }
+.tile svg { width: 78%; height: 78%; image-rendering: pixelated; }
+.tile .who { width: 80%; height: 96%; display: block; transition: transform .5s ease-in, opacity .5s; }
+.tile .who svg { width: 100%; height: 100%; }
+.tile .who.sink { transform: scale(.2) translateY(30%); opacity: 0; }
+.swatch { display: inline-block; width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--line); }
+
+/* CASTLE DEFENCE */
+.castle { --c: clamp(30px, min(calc((100vw - 60px - (var(--n) - 1) * 3px) / var(--n)), calc((100dvh - 360px) / var(--n))), 60px); display: grid; grid-template-columns: repeat(var(--n), var(--c)); gap: 3px; padding: 8px; border: 3px solid var(--line); border-radius: 16px; background: #2f8f4e; max-width: 100%; }
+.plot { width: var(--c); height: var(--c); padding: 0; border: none; border-radius: 6px; cursor: pointer; display: grid; place-items: center; position: relative; }
+.plot.grass { background: #46b86a; box-shadow: inset 0 0 0 2px rgba(0,0,0,.12); }
+.plot.road { background: #d9b27a; box-shadow: inset 0 0 0 2px rgba(0,0,0,.15); cursor: default; }
+.plot.road.covered { background: #f2d36b; }
+.plot.zap { background: #fff3a8; box-shadow: 0 0 12px #ffcf26; }
+.plot.tower.firing { box-shadow: 0 0 14px #ffcf26, inset 0 0 0 3px #ffcf26; }
+.plot.hint { outline: 4px solid var(--yellow); outline-offset: -3px; box-shadow: 0 0 16px var(--yellow); }
+.plot svg { width: 80%; height: 80%; image-rendering: pixelated; }
+.plot .pips { position: absolute; bottom: 3px; left: 0; right: 0; display: flex; justify-content: center; gap: 2px; }
+.plot .pips i { width: 6px; height: 6px; border-radius: 50%; background: #c2410c; }
+.plot .blob { position: relative; width: 84%; height: 84%; display: grid; place-items: center; }
+.plot .blob b { position: absolute; right: -2px; bottom: -4px; font-size: .8rem; background: #fff; border: 2px solid var(--line); border-radius: 999px; padding: 0 5px; line-height: 1.2; }
+
+@media (prefers-reduced-motion: reduce) { .tile .who { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .bigstars svg, .trophy, .shake, .coin-pop { animation: none; } .course .avatar { transition: none; } }
 </style>
 </head>
@@ -264,7 +295,7 @@ button { font: inherit; color: inherit; }
       <div class="hero">
         <span id="meHero"></span>
         <h2>Brickville</h2>
-        <p>Run the tower, escape the rooms, build a coin empire. Think first!</p>
+        <p>Run the tower, escape the rooms, build a coin empire, cross the switch floor and guard the castle. Think first!</p>
         <p class="whoami" id="whoami"></p>
       </div>
       <div class="areas" id="areas"></div>
@@ -617,6 +648,161 @@ button { font: inherit; color: inherit; }
     throw new Error('no tycoon ' + lv);
   }
 
+  // ======================================================================
+  // COLOUR SWITCH: the coloured floor swaps every step. You may only land on a tile that is solid
+  // at the moment you arrive. Grey tiles are always solid, '#' walls block, ' ' holes are never solid.
+  // Colours: R solid on steps 0, P, 2P..., B on 1, P+1..., Y on 2, P+2... (P = 2 or 3 colours)
+  // ======================================================================
+  const SW_DIRS = [[0, -1, 'up'], [1, 0, 'right'], [0, 1, 'down'], [-1, 0, 'left'], [0, 0, 'wait']];
+  function swSolid(ch, t, P) {
+    if (ch === '.' || ch === 'S' || ch === 'G') return true;
+    if (ch === 'R') return t % P === 0;
+    if (ch === 'B') return t % P === 1;
+    if (ch === 'Y') return t % P === 2;
+    return false;
+  }
+  function swSolve(L, sx, sy, st) {
+    const { grid, P } = L, H = grid.length, W = grid[0].length;
+    const key = (x, y, t) => x + ',' + y + ',' + (t % P);
+    const seen = new Map([[key(sx, sy, st), null]]), q = [[sx, sy, st]];
+    while (q.length) {
+      const [x, y, t] = q.shift();
+      if (grid[y][x] === 'G') {
+        const path = []; let k = key(x, y, t);
+        while (seen.get(k)) { const [pk, d] = seen.get(k); path.unshift(d); k = pk; }
+        return path;
+      }
+      for (const [dx, dy, d] of SW_DIRS) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || grid[ny][nx] === '#') continue;
+        if (!swSolid(grid[ny][nx], t + 1, P)) continue;
+        const k = key(nx, ny, t + 1);
+        if (!seen.has(k)) { seen.set(k, [key(x, y, t), d]); q.push([nx, ny, t + 1]); }
+      }
+    }
+    return null;
+  }
+  function makeSwitch(lv, variant = 0) {
+    const size = lv <= 2 ? 5 : lv <= 5 ? 6 : 7;
+    const P = lv >= 7 ? 3 : 2;
+    const greyP = Math.max(.08, .3 - lv * .025), wallP = .1, holeP = lv >= 3 ? .08 : 0;
+    for (let seed = 0; seed < 4000; seed++) {
+      const r = rng(81000 + lv * 173 + seed * 19 + variant * 7919);
+      const cols = P === 3 ? ['R', 'B', 'Y'] : ['R', 'B'];
+      const grid = Array.from({ length: size }, () => Array.from({ length: size }, () => {
+        const v = r();
+        return v < wallP ? '#' : v < wallP + holeP ? ' ' : v < wallP + holeP + greyP ? '.' : pickR(r, cols);
+      }));
+      const sx = intR(r, 0, 1), sy = size - 1 - intR(r, 0, 1), gx = size - 1 - intR(r, 0, 1), gy = intR(r, 0, 1);
+      grid[sy][sx] = 'S'; grid[gy][gx] = 'G';
+      const L = { grid: grid.map(row => row.join('')), P, start: [sx, sy] };
+      const best = swSolve(L, sx, sy, 0);
+      if (!best || best.length < size + 1 + Math.floor(lv / 2) || best.length > size * 3 + 4) continue;
+      // the colours must matter: the shortest route if every tile were solid has to fail
+      const flat = { ...L, grid: L.grid.map(row => row.replace(/[RBY]/g, '.')) };
+      const naive = swSolve(flat, sx, sy, 0);
+      if (!naive || naive.length >= best.length) continue;
+      if (lv >= 4 && !best.includes('wait') && seed < 2500) continue;   // later levels need a well-timed wait
+      return { ...L, best: best.length, path: best };
+    }
+    throw new Error('no switch ' + lv);
+  }
+
+  // ======================================================================
+  // CASTLE DEFENCE: blobs walk a fixed path; towers next to the path zap one blob each tick.
+  // Place the given number of towers so no blob reaches the castle. Every wave is the same each time.
+  // ======================================================================
+  function tdPath(r, W, H) {
+    for (let tries = 0; tries < 400; tries++) {
+      let x = 0, y = intR(r, 1, H - 2);
+      const path = [[x, y]], used = new Set([x + ',' + y]);
+      const ok = (nx, ny) => nx >= 0 && ny >= 0 && nx < W && ny < H && !used.has(nx + ',' + ny)
+        && [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([a, b]) => used.has((nx + a) + ',' + (ny + b))).length === 1;
+      let dir = [1, 0], stuck = false;
+      while (x < W - 1) {
+        const opts = [];
+        if (ok(x + 1, y)) opts.push([1, 0], [1, 0]);
+        if (dir[0] === 1 || dir[1] === -1) if (ok(x, y - 1)) opts.push([0, -1]);
+        if (dir[0] === 1 || dir[1] === 1) if (ok(x, y + 1)) opts.push([0, 1]);
+        if (dir[1] !== 0 && ok(x, y + dir[1])) opts.push(dir, dir);
+        if (!opts.length) { stuck = true; break; }
+        dir = pickR(r, opts);
+        x += dir[0]; y += dir[1];
+        path.push([x, y]); used.add(x + ',' + y);
+      }
+      if (!stuck && path.length >= W + 4) return path;
+    }
+    return null;
+  }
+  // Simulate a wave. towers: list of [x,y]. Returns { ok, leakAt, frames } (frames only if record)
+  function tdSim(L, towers, record) {
+    const reach = towers.map(([tx, ty]) => L.path.map(([px, py]) => Math.max(Math.abs(px - tx), Math.abs(py - ty)) <= 1));
+    const en = L.wave.map(w => ({ hp: w.hp, idx: -1, t: w.t, alive: true }));
+    const frames = [];
+    for (let tick = 0; tick < 200; tick++) {
+      for (const e of en) {
+        if (!e.alive) continue;
+        if (e.idx >= 0) e.idx++;
+        else if (e.t === tick) e.idx = 0;
+        if (e.idx >= L.path.length - 1) { if (record) frames.push({ en: en.map(o => ({ ...o })), shots: [] }); return { ok: false, leakAt: tick, frames }; }
+      }
+      const shots = [];
+      reach.forEach((rc, ti) => {
+        let target = null;
+        for (const e of en) if (e.alive && e.idx >= 0 && rc[e.idx] && (!target || e.idx > target.idx)) target = e;
+        if (target) { target.hp--; shots.push([ti, target.idx]); if (target.hp <= 0) target.alive = false; }
+      });
+      if (record) frames.push({ en: en.map(o => ({ ...o })), shots });
+      if (en.every(e => !e.alive)) return { ok: true, frames };
+    }
+    return { ok: false, frames };
+  }
+  function tdCandidates(L) {
+    const onPath = new Set(L.path.map(p => p.join()));
+    const out = [];
+    for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
+      if (onPath.has(x + ',' + y)) continue;
+      if (L.path.some(([px, py]) => Math.max(Math.abs(px - x), Math.abs(py - y)) <= 1)) out.push([x, y]);
+    }
+    return out;
+  }
+  function tdSolutions(L, k, limit = 1e9) {
+    const cand = tdCandidates(L), sols = []; let tried = 0;
+    const rec = (start, chosen) => {
+      if (sols.length >= limit) return;
+      if (chosen.length === k) { tried++; if (tdSim(L, chosen).ok) sols.push(chosen.slice()); return; }
+      for (let i = start; i < cand.length; i++) { chosen.push(cand[i]); rec(i + 1, chosen); chosen.pop(); }
+    };
+    rec(0, []);
+    return { sols, tried };
+  }
+  // k = towers you get; n = blobs; gap = ticks between blobs. Blob toughness is tuned per map so that
+  // exactly k towers are needed (k-1 can't do it) and most k-tower placements still fail.
+  const TD_SPEC = [
+    { k: 1, n: 2, gap: 3 }, { k: 1, n: 3, gap: 2 }, { k: 2, n: 3, gap: 2 }, { k: 2, n: 4, gap: 2 }, { k: 2, n: 5, gap: 1 },
+    { k: 3, n: 4, gap: 2 }, { k: 3, n: 5, gap: 1 }, { k: 3, n: 6, gap: 1 }, { k: 4, n: 6, gap: 1 }, { k: 4, n: 7, gap: 1 }
+  ];
+  function makeDefence(lv, variant = 0) {
+    const sp = TD_SPEC[lv], W = 7, H = 7;
+    for (let seed = 0; seed < 300; seed++) {
+      const r = rng(94000 + lv * 131 + seed * 23 + variant * 7919);
+      const path = tdPath(r, W, H);
+      if (!path) continue;
+      const gaps = Array.from({ length: sp.n }, () => sp.gap + (r() < .3 ? 1 : 0));
+      for (let hp = 2; hp <= 9; hp++) {
+        let t = 0;
+        const wave = gaps.map((g, i) => { const w = { t, hp: hp + (lv >= 6 && i === sp.n - 1 ? 1 : 0) }; t += g; return w; });
+        const L = { W, H, path, wave, k: sp.k };
+        if (sp.k > 1 && tdSolutions(L, sp.k - 1, 1).sols.length) continue;     // too weak: fewer towers would do
+        const { sols, tried } = tdSolutions(L, sp.k);
+        if (!sols.length) break;                                                 // too strong for this map
+        if (sols.length / tried > (sp.k === 1 ? .6 : .3)) continue;              // placement barely matters: make blobs tougher
+        return { ...L, solutions: sols.length, tried, sample: sols[0] };
+      }
+    }
+    throw new Error('no defence ' + lv);
+  }
+
   // ---------- sound and speech ----------
   let audio = null, soundOn = true;
   addEventListener('pointerdown', () => { try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch (_) { audio = null; } }, { once: true });
@@ -697,11 +883,14 @@ button { font: inherit; color: inherit; }
     star: px(['...kk...', '...yy...', 'kkyyyykk', '.kyyyyk.', '..yyyy..', '.yykkyy.', '.kk..kk.', '........'], { k: '#1d2340', y: '#ffcf26' }),
     cherry: px(['.....g..', '....gg..', '...g.g..', '..g...g.', '.kk..kk.', 'krrk.krr', 'krrk.krr', '.kk...kk'], { k: '#1d2340', g: '#36c46b', r: '#d1294b' })
   };
+  const SWITCH_ICON = px(['rrbbrrbb', 'rrbbrrbb', 'bbggrrbb', 'bbggrrbb', 'rrbbggrr', 'rrbbggrr', 'bbrrbbrr', 'bbrrbbrr'], { r: '#ff4f5e', b: '#3a8dff', g: '#d7dce8' });
+  const CASTLE_ICON = px(['k.k..k.k', 'kkk..kkk', 'kbk..kbk', 'kbkkkkbk', 'kbbbbbbk', 'kbbkkbbk', 'kbbkkbbk', 'kkkkkkkk'], { k: '#1d2340', b: '#b9c2d6' });
   const leverSvg = up => `<svg viewBox="0 0 26 33" aria-hidden="true"><rect x="3" y="22" width="20" height="9" rx="2" fill="#b9c2d6" stroke="#1d2340" stroke-width="2"/><line x1="13" y1="24" x2="${up ? 7 : 19}" y2="${up ? 6 : 6}" stroke="#1d2340" stroke-width="3" stroke-linecap="round"/><circle cx="${up ? 7 : 19}" cy="6" r="4.5" fill="${up ? '#36c46b' : '#ff4f5e'}" stroke="#1d2340" stroke-width="2"/></svg>`;
 
   // ---------- saving (per player) ----------
-  let save = Object.assign({ obby: [], escape: [], tycoon: [], endless: {} }, KBG.get('brickville', {}));
-  const AREA_KEYS = ['obby', 'escape', 'tycoon'];
+  let save = Object.assign({ obby: [], escape: [], tycoon: [], switch: [], defence: [], endless: {} }, KBG.get('brickville', {}));
+  const AREA_KEYS = ['obby', 'escape', 'tycoon', 'switch', 'defence'];
+  AREA_KEYS.forEach(k => { save[k] = save[k] || []; });
   function persist() {
     KBG.set('brickville', save);
     KBG.setBest('brickville', {
@@ -715,7 +904,9 @@ button { font: inherit; color: inherit; }
   const AREAS = {
     obby: { name: 'Obby Tower', blurb: 'Plan every move, then press Go and watch your runner try it.', count: 10, color: '#ff4f5e', icon: TOWER, build: buildObby },
     escape: { name: 'Escape Rooms', blurb: 'Read the clues, crack each lock, and get out of the room.', count: 10, color: '#9b6bff', icon: DOOR, build: buildEscape },
-    tycoon: { name: 'Tycoon Town', blurb: 'Buy coin machines and reach the goal in the fewest days.', count: 10, color: '#ffcf26', icon: MACHINES.mega, build: buildTycoon }
+    tycoon: { name: 'Tycoon Town', blurb: 'Buy coin machines and reach the goal in the fewest days.', count: 10, color: '#ffcf26', icon: MACHINES.mega, build: buildTycoon },
+    switch: { name: 'Colour Switch', blurb: 'The floor swaps colour every step. Only land on the colour that is safe!', count: 10, color: '#3a8dff', icon: SWITCH_ICON, build: buildSwitch },
+    defence: { name: 'Castle Defence', blurb: 'Place your towers, then start the wave. Stop every blob!', count: 10, color: '#36c46b', icon: CASTLE_ICON, build: buildDefence }
   };
   let current = null, cleanup = null;
   const screens = ['mapScreen', 'levelScreen', 'playScreen'];
@@ -1176,8 +1367,218 @@ button { font: inherit; color: inherit; }
     reset();
   }
 
+  // ======================================================================
+  // COLOUR SWITCH
+  // ======================================================================
+  const SW_COL = { R: '#ff4f5e', B: '#3a8dff', Y: '#ffcf26' };
+  const SW_NAME = { R: 'red', B: 'blue', Y: 'yellow' };
+  function buildSwitch(lv, variant) {
+    let L; try { L = makeSwitch(lv, variant); } catch (_) { L = makeSwitch(lv, 0); }
+    window.__bv.cur = L;
+    const { grid, P } = L, n = grid.length;
+    const order = P === 3 ? ['R', 'B', 'Y'] : ['R', 'B'];
+    let x, y, t, steps, fails = 0, hinted = false, busy = false, hintCell = -1;
+    setQ('Cross the switching floor!',
+      'The coloured tiles take turns. ' + (P === 3 ? 'Red, then blue, then yellow.' : 'Red, then blue, then red again.') + ' You can only step onto a tile that is solid on your next step. Grey tiles are always safe. Bright tiles are safe for your next step; faded ones will vanish. Wait stays still for one step. The best route takes ' + L.best + ' steps.');
+    const stepChip = el('div', 'chip'), nextChip = el('div', 'chip goal'), bestChip = el('div', 'chip', `<span>Best: ${L.best} steps</span>`);
+    $('status').append(stepChip, nextChip, bestChip);
+    const floor = el('div', 'floor');
+    floor.style.setProperty('--n', n);
+    const cells = [];
+    for (let yy = 0; yy < n; yy++) for (let xx = 0; xx < n; xx++) {
+      const c = el('button', 'tile'); c.type = 'button';
+      c.addEventListener('click', () => step(xx, yy));
+      floor.appendChild(c); cells.push(c);
+    }
+    $('stage').appendChild(floor);
+    $('stage').appendChild(el('div', 'legend', order.map((c, i) => `<span><i class="brick" style="--b:${SW_COL[c]}"></i>${SW_NAME[c]}: steps ${[0, 1, 2].map(k => i + k * P).join(', ')}…</span>`).join('') + '<span><i class="brick" style="--b:#d7dce8"></i>grey: always</span>'));
+    action('Wait', () => step(x, y), '', CMD_ICON.wait);
+    action('Start again', () => { if (!busy) reset(); }, 'alt');
+    action('Hint', hint, 'alt');
+    function reset() { x = L.start[0]; y = L.start[1]; t = 0; steps = 0; hintCell = -1; busy = false; msg('', false); draw(); }
+    function draw(fallen) {
+      cells.forEach((c, i) => {
+        const cx = i % n, cy = Math.floor(i / n), ch = grid[cy][cx];
+        let cls = 'tile', style = '';
+        if (ch === '#') cls += ' wall brick';
+        else if (ch === ' ') cls += ' hole';
+        else if (ch === '.' || ch === 'S' || ch === 'G') cls += ' grey brick';
+        else { cls += ' brick ' + (swSolid(ch, t + 1, P) ? 'up' : 'down'); style = `--b:${SW_COL[ch]}`; }
+        if (i === hintCell) cls += ' hint';
+        c.className = cls; c.style.cssText = style;
+        let inner = ch === 'G' ? FLAG : '';
+        if (cx === x && cy === y) inner = `<span class="who${fallen ? ' sink' : ''}">${AVATAR}</span>`;
+        c.innerHTML = inner;
+        const what = ch === '#' ? 'wall' : ch === ' ' ? 'hole' : ch === 'G' ? 'flag' : ch === '.' || ch === 'S' ? 'grey tile' : SW_NAME[ch] + (swSolid(ch, t + 1, P) ? ' tile, safe next step' : ' tile, vanishing');
+        c.setAttribute('aria-label', (cx === x && cy === y ? 'you, on ' : '') + what);
+      });
+      const nextC = order[(t + 1) % P];
+      stepChip.innerHTML = `<span>Step ${steps}</span>`;
+      nextChip.innerHTML = `<span class="swatch" style="background:${SW_COL[nextC]}"></span><span>Next: ${SW_NAME[nextC]}</span>`;
+    }
+    function step(nx, ny) {
+      if (busy) return;
+      const dx = Math.abs(nx - x), dy = Math.abs(ny - y);
+      if (dx + dy > 1) { msg('Step to a tile right next to you.'); beep(150, .1); return; }
+      const ch = grid[ny][nx];
+      if (ch === '#') { msg('That\'s a wall.'); beep(150, .1); return; }
+      hintCell = -1;
+      t++; steps++; x = nx; y = ny;
+      if (!swSolid(ch, t, P)) {
+        busy = true; fails++;
+        draw(true); beep(180, .35, 'sawtooth', .06);
+        msg(ch === ' ' ? 'That\'s a hole! Back to the start.' : 'Splash! That ' + SW_NAME[ch] + ' tile vanished. Only step on the colour that is safe next.');
+        setTimeout(reset, 1600);
+        return;
+      }
+      beep(dx + dy ? 520 + (steps % 5) * 40 : 330, .06, 'triangle', .1);
+      draw();
+      if (ch === 'G') {
+        busy = true;
+        let stars = steps <= L.best ? 3 : steps <= L.best + 2 ? 2 : 1;
+        if (hinted) stars = Math.min(2, stars);
+        setTimeout(() => win(stars, steps <= L.best ? 'Only ' + steps + ' steps. A perfect route!' : 'You made it in ' + steps + ' steps. The best is ' + L.best + '.'), 350);
+      }
+    }
+    function hint() {
+      if (busy) return;
+      const path = swSolve(L, x, y, t);
+      if (!path) { msg('There\'s no safe way from here. Tap Start again.'); return; }
+      hinted = true;
+      const d = SW_DIRS.find(o => o[2] === path[0]);
+      hintCell = (y + d[1]) * n + (x + d[0]);
+      draw();
+      msg((path[0] === 'wait' ? 'Wait one step here.' : 'Step ' + path[0] + ' to the glowing tile.') + ' Hints make the most stars 2.');
+    }
+    const onKey = e => {
+      const m = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], ' ': [0, 0] }[e.key];
+      if (!m || !$('overlay').hidden) return;
+      e.preventDefault();
+      const nx = x + m[0], ny = y + m[1];
+      if (nx >= 0 && ny >= 0 && nx < n && ny < n) step(nx, ny);
+    };
+    addEventListener('keydown', onKey);
+    cleanup = () => removeEventListener('keydown', onKey);
+    reset();
+  }
+
+  // ======================================================================
+  // CASTLE DEFENCE
+  // ======================================================================
+  const BLOB = px(['..kkkk..', '.kggggk.', 'kggggggk', 'kgwkgwkk', 'kggggggk', 'kggkkggk', '.kggggk.', '..kkkk..'], { k: '#1d2340', g: '#9b6bff', w: '#ffffff' });
+  const TOWER_SVG = px(['.k.kk.k.', '.kkkkkk.', '..kyyk..', '..kyyk..', '..krrk..', '.krrrrk.', '.krrrrk.', 'kkkkkkkk'], { k: '#1d2340', y: '#ffcf26', r: '#ff4f5e' });
+  const CASTLE_SVG = px(['k.k..k.k', 'kkk..kkk', 'kbk..kbk', 'kbkkkkbk', 'kbbbbbbk', 'kbbkkbbk', 'kbbkkbbk', 'kkkkkkkk'], { k: '#1d2340', b: '#b9c2d6' });
+  const PORTAL_SVG = px(['..kkkk..', '.kppppk.', 'kppwwppk', 'kpwppwpk', 'kpwppwpk', 'kppwwppk', '.kppppk.', '..kkkk..'], { k: '#1d2340', p: '#9b6bff', w: '#e3d6ff' });
+  function buildDefence(lv, variant) {
+    let L; try { L = makeDefence(lv, variant); } catch (_) { L = makeDefence(lv, 0); }
+    window.__bv.cur = L;
+    const { W, H, path, wave, k } = L;
+    const onPath = new Map(path.map((p, i) => [p.join(), i]));
+    let towers = [], tries = 0, hinted = false, running = false, timers = [], hintAt = null;
+    const hp = wave.map(w => w.hp);
+    setQ(k === 1 ? 'Place 1 tower to stop the blobs!' : 'Place ' + k + ' towers to stop the blobs!',
+      'Blobs walk along the path to your castle. A tower zaps one blob next to it every step, including diagonally. Place ' + k + (k === 1 ? ' tower' : ' towers') + ', then press Start wave. Corners near lots of path are good spots!');
+    const towerChip = el('div', 'chip'), waveChip = el('div', 'chip goal');
+    $('status').append(towerChip, waveChip);
+    waveChip.innerHTML = BLOB + `<span>${wave.length} blobs · ${Math.min(...hp) === Math.max(...hp) ? hp[0] : Math.min(...hp) + '-' + Math.max(...hp)} hits each</span>`;
+    const board = el('div', 'castle');
+    board.style.setProperty('--n', W);
+    const cells = [];
+    for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
+      const c = el('button', 'plot'); c.type = 'button';
+      c.addEventListener('click', () => tap(xx, yy));
+      board.appendChild(c); cells.push(c);
+    }
+    $('stage').appendChild(board);
+    const startBtn = action('Start wave', run, 'go');
+    action('Clear', () => { if (running) return; towers = []; hintAt = null; draw(); msg('', false); }, 'alt');
+    const hintBtn = action('Hint', hint, 'alt'); hintBtn.hidden = true;
+    const covers = (t, p) => Math.max(Math.abs(t[0] - p[0]), Math.abs(t[1] - p[1])) <= 1;
+    function draw(frame) {
+      const en = frame ? frame.en : [];
+      const shotIdx = new Set(frame ? frame.shots.map(s => s[1]) : []);
+      const shooters = new Set(frame ? frame.shots.map(s => s[0]) : []);
+      cells.forEach((c, i) => {
+        const cx = i % W, cy = Math.floor(i / W), key = cx + ',' + cy;
+        const pi = onPath.get(key);
+        let cls = 'plot', inner = '';
+        if (pi != null) {
+          cls += ' road';
+          const cover = towers.filter(t => covers(t, [cx, cy])).length;
+          if (cover) cls += ' covered';
+          if (pi === 0) inner = PORTAL_SVG;
+          else if (pi === path.length - 1) inner = CASTLE_SVG;
+          else if (cover && !frame) inner = `<span class="pips">${'<i></i>'.repeat(cover)}</span>`;
+          const e = en.find(o => o.alive && o.idx === pi);
+          if (e && pi < path.length - 1) inner = `<span class="blob">${BLOB}<b>${e.hp}</b></span>`;
+          if (shotIdx.has(pi)) cls += ' zap';
+        } else {
+          cls += ' grass';
+          const ti = towers.findIndex(t => t[0] === cx && t[1] === cy);
+          if (ti >= 0) { inner = TOWER_SVG; cls += ' tower' + (shooters.has(ti) ? ' firing' : ''); }
+          if (hintAt && hintAt[0] === cx && hintAt[1] === cy) cls += ' hint';
+        }
+        c.className = cls; c.innerHTML = inner;
+        c.setAttribute('aria-label', pi != null ? (pi === 0 ? 'blob portal' : pi === path.length - 1 ? 'your castle' : 'path') : (towers.some(t => t[0] === cx && t[1] === cy) ? 'tower' : 'grass'));
+      });
+      towerChip.innerHTML = TOWER_SVG + `<span>${towers.length} of ${k} towers</span>`;
+      startBtn.disabled = running;
+    }
+    function tap(cx, cy) {
+      if (running) return;
+      if (onPath.has(cx + ',' + cy)) { msg('Towers go on the grass, not the path.'); beep(150, .1); return; }
+      const i = towers.findIndex(t => t[0] === cx && t[1] === cy);
+      hintAt = null;
+      if (i >= 0) { towers.splice(i, 1); beep(330, .06); }
+      else if (towers.length >= k) { msg('You only have ' + k + (k === 1 ? ' tower' : ' towers') + '. Tap a tower to pick it up first.'); beep(150, .1); return; }
+      else { towers.push([cx, cy]); beep(523, .07, 'triangle', .1); }
+      msg('', false); draw();
+    }
+    function run() {
+      if (running) return;
+      if (towers.length < k) { msg('Place all ' + k + (k === 1 ? ' tower' : ' towers') + ' first.'); return; }
+      running = true; hintAt = null; msg('', false);
+      const res = tdSim(L, towers, true);
+      const step = reduced ? 150 : 340;
+      res.frames.forEach((f, i) => timers.push(setTimeout(() => { draw(f); if (f.shots.length) beep(900 - (i % 4) * 60, .04, 'square', .04); }, i * step)));
+      timers.push(setTimeout(() => {
+        running = false;
+        if (res.ok) {
+          draw();
+          const stars = hinted ? Math.min(2, tries === 0 ? 3 : 2) : tries === 0 ? 3 : tries === 1 ? 2 : 1;
+          tune([523, 659, 784, 1047]);
+          setTimeout(() => win(stars, tries === 0 ? 'Every blob stopped on the first try!' : 'The castle is safe!'), 300);
+          return;
+        }
+        tries++;
+        beep(140, .4, 'sawtooth', .06);
+        msg('A blob reached the castle! Look where the blobs got past, move your towers and try again.');
+        if (tries >= 2) hintBtn.hidden = false;
+        timers.push(setTimeout(() => draw(), 1400));
+      }, res.frames.length * step + 200));
+    }
+    function hint() {
+      if (running) return;
+      // find a winning setup that keeps as many of your towers as possible, then suggest one change
+      const { sols } = tdSolutions(L, k, 400);
+      const same = s => s.filter(p => towers.some(t => t[0] === p[0] && t[1] === p[1])).length;
+      const sol = sols.sort((a, b) => same(b) - same(a))[0];
+      if (!sol) return;
+      hinted = true;
+      const missing = sol.find(p => !towers.some(t => t[0] === p[0] && t[1] === p[1]));
+      const extra = towers.find(t => !sol.some(p => p[0] === t[0] && p[1] === t[1]));
+      if (!missing) { msg('Your towers are in a winning spot. Press Start wave!'); return; }
+      if (towers.length >= k && extra) towers = towers.filter(t => t !== extra);
+      hintAt = missing;
+      draw();
+      msg((extra && towers.length < k ? 'I picked up one tower. ' : '') + 'Try a tower on the glowing square. Hints make the most stars 2.');
+    }
+    cleanup = () => { timers.forEach(clearTimeout); timers = []; };
+    draw();
+  }
+
   // ---------- go ----------
-  window.__bv = { makeObby, obbyRun, obbySolve, makeEscape, makeTycoon, tycoonBest, startLevel, AREAS };
+  window.__bv = { makeObby, obbyRun, obbySolve, makeEscape, makeTycoon, tycoonBest, makeSwitch, swSolve, swSolid, makeDefence, tdSim, tdSolutions, startLevel, AREAS };
   showMap();
   if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}));
 })();
