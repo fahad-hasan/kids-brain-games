@@ -1,0 +1,1186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Brickville</title>
+<meta name="description" content="Plan obstacle runs, crack escape rooms and grow a coin tycoon.">
+<meta name="theme-color" content="#2f8cff">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Brickville">
+<link rel="preload" href="../fonts/baloo2-800.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: "Baloo 2"; font-weight: 600; font-display: swap; src: url("../fonts/baloo2-600.woff2") format("woff2"); }
+@font-face { font-family: "Baloo 2"; font-weight: 800; font-display: swap; src: url("../fonts/baloo2-800.woff2") format("woff2"); }
+
+/* Layout: top bar, then one screen at a time (town map, level picker, puzzle) in a centred column.
+   Look: glossy toy bricks with studs on a bright sky; chunky dark outlines. One deliberate light look. */
+:root {
+  --sky: #6cc4ff;
+  --sky-deep: #2f8cff;
+  --ink: #1d2340;
+  --paper: #ffffff;
+  --line: #1d2340;
+  --red: #ff4f5e;
+  --blue: #3a8dff;
+  --yellow: #ffcf26;
+  --green: #36c46b;
+  --orange: #ff8a1f;
+  --purple: #9b6bff;
+  --grey: #b9c2d6;
+  --muted: #5b6488;
+  --font: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: light;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: 100%;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { height: 100%; }
+body {
+  margin: 0; height: 100%;
+  background: linear-gradient(var(--sky), #a9defe 70%, #c9f0c9);
+  color: var(--ink);
+  font-family: var(--font); font-weight: 600; font-size: 1.05rem;
+  overflow: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+.app { height: 100%; display: flex; flex-direction: column; }
+
+/* a toy brick: colour from --b, studs on top */
+.brick {
+  background:
+    radial-gradient(circle at 25% 22%, rgba(255,255,255,.55) 0 9%, transparent 10%),
+    radial-gradient(circle at 75% 22%, rgba(255,255,255,.55) 0 9%, transparent 10%),
+    linear-gradient(rgba(255,255,255,.28), rgba(0,0,0,.12)),
+    var(--b, var(--red));
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,.25);
+}
+
+.top {
+  display: flex; align-items: center; gap: 8px;
+  padding-block: 10px;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+.top h1 { flex: 1; min-width: 0; margin: 0; font-size: clamp(1.2rem, 5vw, 1.6rem); font-weight: 800; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--paper); text-shadow: 0 2px 0 var(--line); }
+.ibtn {
+  flex: none; width: 46px; height: 46px; display: grid; place-items: center;
+  background: var(--paper); border: 3px solid var(--line); border-radius: 14px; box-shadow: 0 4px 0 var(--line);
+  color: var(--ink); cursor: pointer; text-decoration: none; padding: 0;
+}
+.ibtn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); }
+.ibtn svg { width: 24px; height: 24px; }
+.ibtn:focus-visible, .btn:focus-visible, .cmd:focus-visible, .lvl:focus-visible, .area:focus-visible { outline: 4px solid var(--yellow); outline-offset: 2px; }
+#sound .mute, #sound[aria-pressed="false"] .waves { display: none; }
+#sound[aria-pressed="false"] .mute { display: inline; }
+
+.screen {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 4px 24px;
+}
+.col { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+#stage { width: 100%; gap: 12px; }
+
+/* town map */
+.hero { text-align: center; }
+.hero h2 { margin: 4px 0 0; font-size: clamp(2.8rem, 13vw, 4.2rem); line-height: 1; font-weight: 800; color: var(--yellow); -webkit-text-stroke: 2px var(--line); text-shadow: 0 5px 0 var(--line); letter-spacing: .01em; }
+.hero p { margin: 10px 0 0; font-size: 1.15rem; }
+.hero .me { width: 64px; height: 80px; display: block; margin: 0 auto; image-rendering: pixelated; }
+.whoami { display: flex; justify-content: center; align-items: center; gap: 8px; font-weight: 800; margin-top: 6px; }
+.whoami a { color: var(--ink); }
+.areas { display: grid; gap: 16px; width: 100%; }
+.area {
+  display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 14px;
+  padding: 14px; border: 3px solid var(--line); border-radius: 18px; cursor: pointer; text-align: left;
+  background: var(--paper); box-shadow: 0 6px 0 var(--line);
+}
+.area:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--line); }
+.area .art { width: 84px; height: 84px; border-radius: 12px; display: grid; place-items: center; border: 3px solid var(--line); }
+.area .art svg { width: 58px; height: 58px; image-rendering: pixelated; }
+.area b { display: block; font-size: 1.5rem; line-height: 1.1; }
+.area span { display: block; font-size: .98rem; color: var(--muted); }
+.area .prog { margin-top: 6px; display: flex; align-items: center; gap: 6px; font-weight: 800; color: var(--ink); }
+.area .prog svg { width: 20px; height: 20px; }
+.baseplate { width: 100%; height: 22px; border-radius: 6px; --b: var(--green); }
+
+/* level picker */
+.blurb { margin: 0; text-align: center; font-size: clamp(1.2rem, 4.6vw, 1.5rem); font-weight: 800; line-height: 1.2; text-wrap: balance; }
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 12px; width: 100%; }
+.lvl {
+  aspect-ratio: 1; max-width: 100%; border: 3px solid var(--line); border-radius: 16px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 1.9rem; font-weight: 800; color: var(--ink); background: var(--paper); box-shadow: 0 5px 0 var(--line);
+}
+.lvl:disabled { opacity: .5; cursor: default; }
+.lvl.next { background: var(--yellow); }
+.lvl .stars { display: flex; gap: 1px; } .lvl .stars svg { width: 18px; height: 18px; }
+.lvl svg.lock { width: 28px; height: 28px; }
+.lvl.endless { grid-column: span 2; aspect-ratio: auto; min-height: 84px; flex-direction: row; gap: 12px; }
+.lvl .inf { font-size: 2.6rem; line-height: 1; color: var(--sky-deep); }
+.lvl .small { font-size: 1rem; }
+
+/* puzzle chrome */
+.q { margin: 0; text-align: center; font-size: clamp(1.35rem, 5.2vw, 1.9rem); font-weight: 800; line-height: 1.15; text-wrap: balance; }
+.status { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.chip { display: flex; align-items: center; gap: 6px; background: var(--paper); border: 3px solid var(--line); border-radius: 999px; padding: 2px 14px 2px 8px; font-weight: 800; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.chip svg { width: 24px; height: 24px; image-rendering: pixelated; }
+.chip.goal { background: var(--yellow); }
+.msg { min-height: 1.6em; text-align: center; font-size: 1.15rem; font-weight: 800; max-width: 34ch; text-wrap: balance; }
+.row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.btn {
+  border: 3px solid var(--line); border-radius: 14px; cursor: pointer;
+  padding: 6px 18px; font-size: 1.15rem; font-weight: 800; color: var(--ink);
+  background: var(--yellow); box-shadow: 0 5px 0 var(--line);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--line); }
+.btn.alt { background: var(--paper); }
+.btn.go { background: var(--green); color: var(--paper); text-shadow: 0 2px 0 var(--line); font-size: 1.3rem; }
+.btn:disabled { opacity: .45; cursor: default; }
+.panel { width: 100%; background: var(--paper); border: 3px solid var(--line); border-radius: 18px; padding: 12px; box-shadow: 0 5px 0 var(--line); }
+
+/* overlay */
+.overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(20, 30, 70, .55); padding: 20px; }
+.win { width: min(380px, 100%); text-align: center; padding: 22px 18px 20px; border-radius: 22px; background: var(--paper); border: 4px solid var(--line); box-shadow: 0 8px 0 var(--line); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.win h2 { margin: 0; font-size: 2.1rem; line-height: 1.05; font-weight: 800; text-wrap: balance; }
+.win p { margin: 0; font-size: 1.1rem; max-width: 28ch; }
+.bigstars { display: flex; gap: 6px; }
+.bigstars svg { width: 56px; height: 56px; animation: pop .45s backwards; }
+.bigstars svg:nth-child(2) { animation-delay: .15s; } .bigstars svg:nth-child(3) { animation-delay: .3s; }
+.trophy { width: 110px; height: 110px; image-rendering: pixelated; animation: pop .5s; }
+@keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+@keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.shake { animation: shake .3s; }
+
+/* OBBY */
+.course {
+  --cols: 12;
+  --c: clamp(20px, min(calc((100vw - 44px) / var(--cols)), calc((100dvh - 430px) / 5)), 48px);
+  position: relative; display: grid; grid-template-columns: repeat(var(--cols), var(--c)); grid-template-rows: repeat(5, var(--c));
+  padding: 6px; border: 3px solid var(--line); border-radius: 14px; background: linear-gradient(#bfe6ff, #e9f7ff); max-width: 100%;
+}
+.course .cell { position: relative; }
+.course .bk { position: absolute; inset: 1px; border-radius: 3px; }
+.course .lava { --b: var(--orange); box-shadow: inset 0 0 0 2px rgba(0,0,0,.3), 0 0 10px #ff8a1f; }
+.course .blue { --b: var(--blue); }
+.course .red { --b: var(--red); }
+.course .ghost { opacity: .28; outline: 2px dashed var(--line); outline-offset: -3px; }
+.course .tag { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--c) * .42); font-weight: 800; color: #fff; text-shadow: 0 1px 0 var(--line); z-index: 2; }
+.course .void { position: absolute; left: 1px; right: 1px; bottom: 1px; height: 40%; background: repeating-linear-gradient(45deg, #2b3a6b 0 4px, #1d2340 4px 8px); border-radius: 3px; }
+.course .flag svg, .course .avatar svg { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+.course .avatar { position: absolute; width: var(--c); height: calc(var(--c) * 1.25); z-index: 5; transition: left .28s ease, top .28s ease; pointer-events: none; }
+.course .avatar.fall { transition: top .5s ease-in; }
+.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; font-size: .95rem; font-weight: 800; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 20px; height: 20px; border-radius: 4px; display: inline-block; }
+.cmds { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+.cmd {
+  display: flex; flex-direction: column; align-items: center; gap: 0; padding: 6px 2px;
+  border: 3px solid var(--line); border-radius: 14px; background: var(--paper); box-shadow: 0 4px 0 var(--line); cursor: pointer; font-weight: 800; font-size: .95rem;
+}
+.cmd:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); }
+.cmd svg { width: 34px; height: 34px; }
+.program { width: 100%; min-height: 58px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; justify-content: center; padding: 6px; border: 3px dashed var(--line); border-radius: 14px; background: rgba(255,255,255,.6); }
+.program .empty { color: var(--muted); font-weight: 800; }
+.pc { position: relative; width: 40px; height: 44px; border-radius: 10px; border: 2px solid var(--line); background: var(--paper); display: grid; place-items: center; padding-top: 8px; }
+.pc svg { width: 24px; height: 24px; }
+.pc b { position: absolute; top: -2px; left: 0; right: 0; text-align: center; font-size: .72rem; line-height: 1.2; }
+.pc.even { background: #d6e8ff; } .pc.odd { background: #ffd9dc; }
+.pc.now { outline: 4px solid var(--yellow); }
+.pc.bad { background: var(--red); color: #fff; }
+
+/* ESCAPE */
+.room { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.station { background: var(--paper); border: 3px solid var(--line); border-radius: 18px; box-shadow: 0 5px 0 var(--line); padding: 12px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.station.done { background: #dff7e6; padding-block: 8px; flex-direction: row; justify-content: center; }
+.station.locked { background: #e8ecf6; color: var(--muted); flex-direction: row; justify-content: center; padding-block: 10px; }
+.station h3 { margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+.station h3 svg { width: 28px; height: 28px; image-rendering: pixelated; }
+.note { width: 100%; background: #fff7d6; border: 2px solid var(--line); border-radius: 10px; padding: 8px 12px; font-weight: 800; text-align: center; }
+.note ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.note li::before { content: "\2022  "; }
+.shelf { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 8px; background: #c9935a; border: 2px solid var(--line); border-radius: 8px; width: 100%; }
+.shelf svg { width: 30px; height: 30px; image-rendering: pixelated; }
+.swatch { display: inline-block; width: 22px; height: 22px; border-radius: 5px; border: 2px solid var(--line); vertical-align: middle; }
+.seq { font-size: 1.8rem; font-weight: 800; letter-spacing: .04em; }
+.eq { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 1.6rem; font-weight: 800; }
+.eq svg { width: 34px; height: 34px; image-rendering: pixelated; }
+.dials { display: flex; gap: 8px; justify-content: center; }
+.dial { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.dial button { width: 52px; height: 34px; border: 3px solid var(--line); border-radius: 10px; background: var(--paper); cursor: pointer; font-weight: 800; font-size: 1.1rem; padding: 0; }
+.dial output { width: 52px; height: 56px; display: grid; place-items: center; font-size: 2.2rem; font-weight: 800; border: 3px solid var(--line); border-radius: 10px; background: #1d2340; color: var(--yellow); font-variant-numeric: tabular-nums; }
+.dial.c output { box-shadow: inset 0 -8px 0 var(--dc); }
+.levers { display: flex; gap: 12px; justify-content: center; }
+.lever { display: flex; flex-direction: column; align-items: center; gap: 2px; border: none; background: none; cursor: pointer; font-weight: 800; font-size: 1.1rem; padding: 0; }
+.lever svg { width: 52px; height: 66px; }
+.slots, .palette { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.slot, .paint { width: 52px; height: 52px; border: 3px solid var(--line); border-radius: 12px; cursor: pointer; background: #f1f3f9; display: grid; place-items: center; font-weight: 800; font-size: 1.2rem; color: var(--muted); }
+.paint { box-shadow: 0 4px 0 var(--line); }
+.paint:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); }
+.exit svg { width: 60px; height: 72px; image-rendering: pixelated; }
+
+/* TYCOON */
+.base { width: 100%; min-height: 104px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: 6px; padding: 10px; border: 3px solid var(--line); border-radius: 16px; position: relative; overflow: hidden;
+  background: linear-gradient(#bfe6ff 0 70%, #36c46b 70%); }
+.base .m { width: 46px; height: 52px; position: relative; }
+.base .m svg { width: 100%; height: 100%; image-rendering: pixelated; }
+.base .empty { align-self: center; color: var(--ink); font-weight: 800; background: rgba(255,255,255,.75); border-radius: 10px; padding: 2px 10px; }
+.coin-pop { position: absolute; font-weight: 800; color: var(--ink); background: var(--yellow); border: 2px solid var(--line); border-radius: 999px; padding: 0 8px; font-size: .9rem; animation: rise 1s ease-out forwards; pointer-events: none; }
+@keyframes rise { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-34px); opacity: 0; } }
+.goalbar { width: 100%; height: 22px; border: 3px solid var(--line); border-radius: 999px; background: var(--paper); overflow: hidden; }
+.goalbar i { display: block; height: 100%; background: var(--yellow); transition: width .4s ease; }
+.shop { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; border: 3px solid var(--line); border-radius: 16px; background: var(--paper); box-shadow: 0 5px 0 var(--line); text-align: center; }
+.item svg { width: 48px; height: 48px; image-rendering: pixelated; }
+.item b { font-size: 1.1rem; line-height: 1.1; }
+.item .info { font-size: .95rem; color: var(--muted); font-weight: 800; }
+.item .btn { padding: 4px 14px; font-size: 1.05rem; }
+.item.hinted { box-shadow: 0 5px 0 var(--line), 0 0 0 4px var(--yellow); }
+@media (prefers-reduced-motion: reduce) { .bigstars svg, .trophy, .shake, .coin-pop { animation: none; } .course .avatar { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="ibtn" id="back" type="button" aria-label="Back" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 4L2 12l8 8v-5h12V9H10z"/></svg></button>
+    <h1 id="title">Brickville</h1>
+    <button class="ibtn" id="hear" type="button" aria-label="Hear the question" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 4h18v12H9l-5 4v-4H3z"/><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" d="M7 8.5h10M7 12h6"/></svg></button>
+    <button class="ibtn" id="sound" type="button" aria-pressed="true" aria-label="Sound on"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z"/><path class="waves" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/><path class="mute" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M16 9l6 6M22 9l-6 6"/></svg></button>
+    <a class="ibtn" href="../" aria-label="All games"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></a>
+  </header>
+
+  <section class="screen" id="mapScreen">
+    <div class="col">
+      <div class="hero">
+        <span id="meHero"></span>
+        <h2>Brickville</h2>
+        <p>Run the tower, escape the rooms, build a coin empire. Think first!</p>
+        <p class="whoami" id="whoami"></p>
+      </div>
+      <div class="areas" id="areas"></div>
+      <div class="baseplate brick"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="levelScreen" hidden>
+    <div class="col">
+      <p class="blurb" id="areaBlurb"></p>
+      <div class="levels" id="levels"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="playScreen" hidden>
+    <div class="col">
+      <h2 class="q" id="q"></h2>
+      <div class="status" id="status"></div>
+      <div id="stage" class="col"></div>
+      <div class="msg" id="msg" aria-live="polite"></div>
+      <div class="row" id="actions"></div>
+    </div>
+  </section>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="win" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div id="winArt"></div>
+    <h2 id="winTitle">Level complete!</h2>
+    <p id="winText"></p>
+    <div class="row" id="winBtns"></div>
+  </div>
+</div>
+
+<script src="../shared/profiles.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  const shuffleWith = (r, arr) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const pickR = (r, a) => a[Math.floor(r() * a.length)];
+  const intR = (r, lo, hi) => lo + Math.floor(r() * (hi - lo + 1));
+
+  // ======================================================================
+  // OBBY: plan a list of moves, then watch the avatar run them.
+  // Columns: { h: floor height 0-3 (or -1 = gap), k: 'n' normal | 'l' lava | 'b' blue (there on even steps) | 'r' red (odd steps) }
+  // Moves (each takes one step of time): walk (1 right, same or lower), jump (1 right, exactly 1 higher),
+  // leap (2 right over a gap/lava/low block, landing same or lower), wait (stay).
+  // ======================================================================
+  const OBBY_MOVES = ['walk', 'jump', 'leap', 'wait'];
+  function present(c, t) { if (!c || c.h < 0) return false; if (c.k === 'b') return t % 2 === 0; if (c.k === 'r') return t % 2 === 1; return true; }
+  // returns { x, t, ok, why } after one move
+  function obbyStep(cols, x, t, move) {
+    const here = cols[x], nt = t + 1;
+    const land = (n, why) => {
+      const c = cols[n];
+      if (!c || c.h < 0 || !present(c, nt)) return { x: n, t: nt, ok: false, why: 'fall' };
+      if (c.k === 'l') return { x: n, t: nt, ok: false, why: 'lava' };
+      return { x: n, t: nt, ok: true };
+    };
+    if (move === 'wait') return present(here, nt) ? { x, t: nt, ok: true } : { x, t: nt, ok: false, why: 'vanish' };
+    if (move === 'walk') {
+      const n = cols[x + 1];
+      if (n && n.h > here.h && present(n, nt)) return { x, t: nt, ok: false, why: 'bump' };
+      if (n && n.h >= 0 && present(n, nt) && n.h > here.h) return { x, t: nt, ok: false, why: 'bump' };
+      return land(x + 1);
+    }
+    if (move === 'jump') {
+      const n = cols[x + 1];
+      if (!n || n.h < 0 || !present(n, nt)) return { x: x + 1, t: nt, ok: false, why: 'fall' };
+      if (n.h > here.h + 1) return { x, t: nt, ok: false, why: 'bump' };
+      if (n.h !== here.h + 1) return { x: x + 1, t: nt, ok: false, why: 'jumpflat' };
+      return land(x + 1);
+    }
+    if (move === 'leap') {
+      const mid = cols[x + 1], n = cols[x + 2];
+      if (mid && mid.h > here.h && (mid.k === 'n' || mid.k === 'l')) return { x, t: nt, ok: false, why: 'bump' };
+      if (!n) return { x: x + 2, t: nt, ok: false, why: 'fall' };
+      if (n.h > here.h && present(n, nt)) return { x: x + 1, t: nt, ok: false, why: 'bump' };
+      return land(x + 2);
+    }
+  }
+  function obbySolve(cols, startT = 0, startX = 0) {
+    const goal = cols.length - 1;
+    const key = (x, t) => x + ':' + (t % 2);
+    const seen = new Map([[key(startX, startT), null]]);
+    const q = [[startX, startT]];
+    while (q.length) {
+      const [x, t] = q.shift();
+      if (x === goal) {
+        const path = []; let k = key(x, t);
+        while (seen.get(k)) { const [pk, m] = seen.get(k); path.unshift(m); k = pk; }
+        return path;
+      }
+      for (const m of OBBY_MOVES) {
+        const r = obbyStep(cols, x, t, m);
+        if (!r.ok) continue;
+        const k = key(r.x, r.t);
+        if (!seen.has(k)) { seen.set(k, [key(x, t), m]); q.push([r.x, r.t]); }
+      }
+    }
+    return null;
+  }
+  // what each level must teach (moves the best plan has to use) and which pieces may appear
+  const OBBY_SPEC = [
+    { len: 8, parts: ['flat', 'up', 'down'], need: ['jump'] },
+    { len: 10, parts: ['flat', 'up', 'up', 'down'], need: ['jump', 'walk'] },
+    { len: 10, parts: ['flat', 'up', 'gap', 'gap'], need: ['leap'] },
+    { len: 12, parts: ['up', 'down', 'gap', 'lava', 'lava'], need: ['leap', 'jump'] },
+    { len: 12, parts: ['up', 'gap', 'lava', 'down', 'up'], need: ['leap', 'jump'] },
+    { len: 12, parts: ['flat', 'blink', 'up', 'down'], need: ['wait', 'timing'], waitStart: true },
+    { len: 13, parts: ['blink', 'blink2', 'up', 'gap'], need: ['timing', 'leap'] },
+    { len: 14, parts: ['blink', 'lava', 'up', 'gap', 'down'], need: ['timing', 'leap', 'jump'] },
+    { len: 15, parts: ['blink2', 'lava', 'up', 'gap', 'blinkgap'], need: ['timing', 'leap', 'jump'] },
+    { len: 16, parts: ['blink2', 'blinkgap', 'lava', 'up', 'gap', 'down'], need: ['timing', 'leap', 'jump'] }
+  ];
+  function makeObby(lv, variant = 0) {
+    const spec = OBBY_SPEC[lv];
+    for (let seed = 0; seed < 3000; seed++) {
+      const r = rng(31000 + lv * 211 + seed * 13 + variant * 7919);
+      // waitStart: a blue block that is missing on the first step, then a higher block so a leap can't skip it
+      const cols = spec.waitStart ? [{ h: 0, k: 'n' }, { h: 0, k: 'b' }, { h: 1, k: 'n' }] : [{ h: 0, k: 'n' }, { h: 0, k: 'n' }];
+      let h = spec.waitStart ? 1 : 0;
+      while (cols.length < spec.len - 1) {
+        const p = pickR(r, spec.parts);
+        if (p === 'flat') cols.push({ h, k: 'n' });
+        else if (p === 'up' && h < 3) { h++; cols.push({ h, k: 'n' }); }
+        else if (p === 'down' && h > 0) { h = Math.max(0, h - intR(r, 1, 2)); cols.push({ h, k: 'n' }); }
+        else if (p === 'gap') { cols.push({ h: -1, k: 'n' }); cols.push({ h: Math.max(0, h - intR(r, 0, 1)), k: 'n' }); h = cols[cols.length - 1].h; }
+        else if (p === 'lava') { cols.push({ h: Math.min(h, intR(r, 0, h)), k: 'l' }); cols.push({ h, k: 'n' }); }
+        else if (p === 'blink') { cols.push({ h, k: r() < .5 ? 'b' : 'r' }); cols.push({ h, k: 'n' }); }
+        else if (p === 'blink2') { const f = r() < .5; cols.push({ h, k: f ? 'b' : 'r' }); cols.push({ h, k: f ? 'r' : 'b' }); cols.push({ h, k: 'n' }); }
+        else if (p === 'blinkgap') { cols.push({ h, k: r() < .5 ? 'b' : 'r' }); cols.push({ h: -1, k: 'n' }); cols.push({ h, k: 'n' }); }
+        else cols.push({ h, k: 'n' });
+      }
+      cols.length = Math.min(cols.length, spec.len - 1);
+      const last = cols[cols.length - 1];
+      cols.push({ h: last.h >= 0 ? last.h : 0, k: 'n', flag: true });
+      if (cols[cols.length - 2].h < 0 || cols[cols.length - 2].k !== 'n') cols[cols.length - 2] = { h: cols[cols.length - 1].h, k: 'n' };
+      const path = obbySolve(cols);
+      if (!path) continue;
+      if (!spec.need.every(m => m === 'timing' || path.includes(m))) continue;
+      if (spec.need.includes('timing')) {
+        // timing must matter: the best plan for a map where blinking blocks never vanish has to fail here
+        const steady = cols.map(c => c.k === 'b' || c.k === 'r' ? { ...c, k: 'n' } : c);
+        const naive = obbySolve(steady);
+        if (!naive || obbyRun(cols, naive).ok) continue;
+        if (!cols.some((c, i) => (c.k === 'b' || c.k === 'r'))) continue;
+      }
+      if (path.length < spec.len - 4) continue;
+      return { cols, best: path.length, path, spec };
+    }
+    throw new Error('no obby ' + lv);
+  }
+  function obbyRun(cols, program) {
+    const frames = [{ x: 0, t: 0, ok: true }];
+    let x = 0, t = 0;
+    for (const m of program) {
+      const r = obbyStep(cols, x, t, m);
+      frames.push({ ...r, move: m });
+      if (!r.ok) return { frames, ok: false, why: r.why };
+      x = r.x; t = r.t;
+      if (x === cols.length - 1) return { frames, ok: true };
+    }
+    return { frames, ok: x === cols.length - 1, why: 'short' };
+  }
+
+  // ======================================================================
+  // ESCAPE ROOMS: a chain of locks. Each lock has a clue; solving one reveals the next.
+  // Every generator makes sure there is exactly one right answer.
+  // ======================================================================
+  const ECOLORS = { red: '#ff5d73', blue: '#4cc9f0', yellow: '#ffd23f', green: '#7ae582', purple: '#c77dff' };
+  function lockCount(r, d) {
+    const cols = shuffleWith(r, Object.keys(ECOLORS)).slice(0, d >= 2 ? 3 : 2);
+    const shapes = ['book', 'cup', 'ball', 'box'];
+    const counts = cols.map(() => intR(r, 1, d >= 2 ? 6 : 4));
+    const items = [];
+    cols.forEach((c, i) => { for (let k = 0; k < counts[i]; k++) items.push({ c, s: pickR(r, shapes) }); });
+    // a few decoy items in a colour that isn't asked about
+    const decoy = Object.keys(ECOLORS).find(c => !cols.includes(c));
+    for (let k = 0; k < (d >= 1 ? intR(r, 1, 3) : 0); k++) items.push({ c: decoy, s: pickR(r, shapes) });
+    return { type: 'digits', kind: 'count', digits: cols.length, answer: counts, order: cols, items: shuffleWith(r, items) };
+  }
+  function lockPattern(r, d) {
+    let seq, ans;
+    const kind = d <= 1 ? 'add' : pickR(r, d >= 3 ? ['add', 'double', 'grow', 'alt'] : ['add', 'grow']);
+    if (kind === 'add') { const k = intR(r, 2, d >= 2 ? 9 : 5), s = intR(r, 1, 10); seq = [0, 1, 2, 3].map(i => s + i * k); ans = s + 4 * k; }
+    else if (kind === 'double') { const s = intR(r, 1, 3); seq = [0, 1, 2, 3].map(i => s * 2 ** i); ans = s * 16; }
+    else if (kind === 'grow') { const s = intR(r, 1, 5); seq = [s]; for (let i = 1; i < 5; i++) seq.push(seq[i - 1] + i); ans = seq.pop(); }
+    else { const a = intR(r, 1, 3), b = intR(r, 3, 6), s = intR(r, 1, 6); seq = [s]; for (let i = 1; i < 5; i++) seq.push(seq[i - 1] + (i % 2 ? a : b)); ans = seq.pop(); }
+    if (ans > 99) return lockPattern(r, 1);
+    return { type: 'digits', kind: 'pattern', digits: 2, answer: [Math.floor(ans / 10), ans % 10], seq, value: ans, rule: kind };
+  }
+  function lockLevers(r, d) {
+    const n = d >= 2 ? 4 : 3, names = ['A', 'B', 'C', 'D'].slice(0, n);
+    const ans = names.map(() => r() < .5);
+    if (d <= 1) return { type: 'levers', kind: 'copy', n, answer: ans, clues: null };
+    // logic clues: one fixed lever, the rest described relative to an earlier lever
+    const order = shuffleWith(r, names.map((_, i) => i));
+    const clues = [`${names[order[0]]} is ${ans[order[0]] ? 'UP' : 'DOWN'}.`];
+    for (let i = 1; i < n; i++) {
+      const me = order[i], ref = order[Math.floor(r() * i)];
+      clues.push(`${names[me]} is ${ans[me] === ans[ref] ? 'the same as' : 'different from'} ${names[ref]}.`);
+    }
+    return { type: 'levers', kind: 'logic', n, answer: ans, clues: shuffleWith(r, clues.slice(1)).concat(clues[0]).reverse() };
+  }
+  function lockEquation(r, d) {
+    const icons = shuffleWith(r, ['apple', 'pear', 'star', 'cherry']);
+    const a = intR(r, 1, 5), b = intR(r, 1, 6), c = intR(r, 1, 6);
+    let eqs, ask, ans;
+    if (d <= 3) { eqs = [[[0, 0], 2 * a], [[0, 1], a + b]]; ask = 1; ans = b; }
+    else { eqs = [[[0, 0, 0], 3 * a], [[0, 1], a + b], [[1, 2], b + c]]; ask = 2; ans = c; }
+    return { type: 'digits', kind: 'equation', digits: 1, answer: [ans], icons, eqs, ask, value: ans };
+  }
+  function lockColours(r, d) {
+    const n = d >= 3 ? 4 : 3;
+    const cols = shuffleWith(r, Object.keys(ECOLORS)).slice(0, n);
+    const perms = a => a.length <= 1 ? [a] : a.flatMap((v, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map(p => [v, ...p]));
+    const all = perms(cols);
+    const ans = pickR(r, all);
+    const pos = c => ans.indexOf(c);
+    const pool = [];
+    for (const c of cols) {
+      pool.push({ t: `${cap(c)} is first.`, f: p => p[0] === c, ok: pos(c) === 0 });
+      pool.push({ t: `${cap(c)} is last.`, f: p => p[n - 1] === c, ok: pos(c) === n - 1 });
+      pool.push({ t: `${cap(c)} is not first.`, f: p => p[0] !== c, ok: pos(c) !== 0 });
+      pool.push({ t: `${cap(c)} is not last.`, f: p => p[n - 1] !== c, ok: pos(c) !== n - 1 });
+      for (const o of cols) if (o !== c) {
+        pool.push({ t: `${cap(c)} is just before ${o}.`, f: p => p.indexOf(c) + 1 === p.indexOf(o), ok: pos(c) + 1 === pos(o) });
+        pool.push({ t: `${cap(c)} is next to ${o}.`, f: p => Math.abs(p.indexOf(c) - p.indexOf(o)) === 1, ok: Math.abs(pos(c) - pos(o)) === 1 });
+      }
+    }
+    const truths = shuffleWith(r, pool.filter(x => x.ok && !(d >= 4 && /is first|is last\./.test(x.t) && !/not/.test(x.t))));
+    const chosen = [];
+    let left = all;
+    for (const c of truths) {
+      const next = left.filter(c.f);
+      if (next.length < left.length) { chosen.push(c); left = next; }
+      if (left.length === 1) break;
+    }
+    if (left.length !== 1) return lockColours(r, d - 1);
+    // drop any clue the others already cover, so there is less to read
+    for (let i = chosen.length - 1; i >= 0; i--) {
+      const rest = chosen.filter((_, j) => j !== i);
+      if (all.filter(p => rest.every(c => c.f(p))).length === 1) chosen.splice(i, 1);
+    }
+    return { type: 'colours', kind: 'order', n, answer: ans, palette: shuffleWith(r, cols), clues: chosen.map(c => c.t) };
+  }
+  const cap = s => s[0].toUpperCase() + s.slice(1);
+  const ESCAPE_SPEC = [
+    [['count', 0]],
+    [['pattern', 0], ['count', 1]],
+    [['levers', 0], ['pattern', 1]],
+    [['count', 2], ['levers', 1], ['pattern', 2]],
+    [['equation', 2], ['levers', 2]],
+    [['colours', 2], ['count', 2], ['equation', 3]],
+    [['levers', 3], ['pattern', 3], ['colours', 3]],
+    [['equation', 4], ['colours', 3], ['count', 3]],
+    [['pattern', 4], ['levers', 4], ['colours', 4], ['equation', 4]],
+    [['colours', 4], ['equation', 4], ['levers', 4], ['pattern', 4]]
+  ];
+  const LOCK_MAKERS = { count: lockCount, pattern: lockPattern, levers: lockLevers, equation: lockEquation, colours: lockColours };
+  function makeEscape(lv, variant = 0) {
+    const r = rng(52000 + lv * 97 + variant * 7919);
+    return { locks: ESCAPE_SPEC[lv].map(([k, d]) => LOCK_MAKERS[k](r, d)) };
+  }
+
+  // ======================================================================
+  // TYCOON TOWN: buy droppers that earn coins every day. Reach the goal in the fewest days.
+  // ======================================================================
+  function tycoonBest(L, start) {
+    // start: { coins, owned: [..], day }; returns { days, plan } where plan[0] is what to buy today
+    const n = L.shop.length, cap = L.goal;
+    const combos = (coins, owned) => {
+      const out = [];
+      const rec = (i, c, o, bought) => {
+        if (i === n) { out.push({ c, o, bought }); return; }
+        for (let k = 0; L.shop[i].max - o[i] >= k && c - k * L.shop[i].cost >= 0; k++) {
+          const o2 = o.slice(); o2[i] += k;
+          rec(i + 1, c - k * L.shop[i].cost, o2, bought.concat(Array(k).fill(i)));
+        }
+      };
+      rec(0, coins, owned, []);
+      return out;
+    };
+    const income = o => o.reduce((s, k, i) => s + k * L.shop[i].income, 0);
+    if (start.coins >= cap) return { days: 0, plan: [[]] };
+    let frontier = new Map([[start.owned.join() + '|' + start.coins, { coins: start.coins, owned: start.owned, first: null }]]);
+    for (let d = 1; d <= 30; d++) {
+      const next = new Map();
+      for (const s of frontier.values()) {
+        for (const cb of combos(s.coins, s.owned)) {
+          const coins = Math.min(cap, cb.c + income(cb.o));
+          const first = s.first || cb.bought;
+          if (coins >= cap) return { days: d, plan: [first] };
+          const k = cb.o.join() + '|' + coins;
+          if (!next.has(k)) next.set(k, { coins, owned: cb.o, first });
+        }
+      }
+      // keep the search small: drop states that are worse in every way than another
+      const arr = [...next.values()].sort((a, b) => b.coins - a.coins);
+      frontier = new Map();
+      for (const s of arr) {
+        let dom = false;
+        for (const t of frontier.values()) if (t.coins >= s.coins && t.owned.every((v, i) => v >= s.owned[i])) { dom = true; break; }
+        if (!dom) frontier.set(s.owned.join() + '|' + s.coins, s);
+        if (frontier.size > 400) break;
+      }
+    }
+    return { days: Infinity, plan: [[]] };
+  }
+  const TYCOON_SHOP = [
+    { id: 'drip', name: 'Coin Drip', icon: 'drip' },
+    { id: 'press', name: 'Coin Press', icon: 'press' },
+    { id: 'mega', name: 'Mega Mint', icon: 'mega' }
+  ];
+  function makeTycoon(lv, variant = 0) {
+    for (let seed = 0; seed < 2000; seed++) {
+      const r = rng(73000 + lv * 59 + seed * 11 + variant * 7919);
+      const nShop = lv <= 1 ? 1 : lv <= 4 ? 2 : 3;
+      const shop = [];
+      for (let i = 0; i < nShop; i++) {
+        const cost = i === 0 ? intR(r, 3, 6) : i === 1 ? intR(r, 10, 16) : intR(r, 25, 35);
+        const income = i === 0 ? intR(r, 1, 2) : i === 1 ? intR(r, 3, 5) : intR(r, 8, 12);
+        shop.push({ ...TYCOON_SHOP[i], cost, income, max: lv <= 1 ? 3 : 4 });
+      }
+      const coins = intR(r, shop[0].cost, shop[0].cost + 4);
+      const goal = [20, 30, 40, 50, 60, 70, 90, 110, 130, 150][lv] + intR(r, 0, 2) * 5;
+      const L = { shop, coins, goal };
+      const best = tycoonBest(L, { coins, owned: shop.map(() => 0) });
+      if (!isFinite(best.days) || best.days < 3 || best.days > 11) continue;
+      // greedy "always buy the cheapest thing you can" must not be the best plan (from level 3)
+      if (lv >= 3) {
+        let c = coins, o = shop.map(() => 0), d = 0;
+        while (c < goal && d < 40) {
+          let bought = true;
+          while (bought) { bought = false; for (let i = 0; i < nShop; i++) if (c >= shop[i].cost && o[i] < shop[i].max) { c -= shop[i].cost; o[i]++; bought = true; break; } }
+          c += o.reduce((s, k, i) => s + k * shop[i].income, 0); d++;
+        }
+        if (d <= best.days) continue;
+      }
+      return { ...L, best: best.days };
+    }
+    throw new Error('no tycoon ' + lv);
+  }
+
+  // ---------- sound and speech ----------
+  let audio = null, soundOn = true;
+  addEventListener('pointerdown', () => { try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch (_) { audio = null; } }, { once: true });
+  function beep(freq, dur = .1, type = 'square', vol = .06) {
+    if (!soundOn || !audio) return;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + dur);
+    o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + dur);
+  }
+  const tune = (notes, gap = 100, type = 'triangle') => notes.forEach((f, i) => setTimeout(() => beep(f, .16, type, .14), i * gap));
+  let speech = '';
+  function say(text, force) {
+    if (!force && !soundOn) return;
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = .92; u.pitch = 1.1; speechSynthesis.speak(u); } catch (_) {}
+  }
+  $('sound').addEventListener('click', () => {
+    soundOn = !soundOn;
+    $('sound').setAttribute('aria-pressed', soundOn);
+    $('sound').setAttribute('aria-label', soundOn ? 'Sound on' : 'Sound off');
+    if (!soundOn) try { speechSynthesis.cancel(); } catch (_) {}
+  });
+  $('hear').addEventListener('click', () => say(speech, true));
+
+  // ---------- pixel art (original) ----------
+  function px(rows, pal, cls = '') {
+    const h = rows.length, w = rows[0].length;
+    let r = '';
+    rows.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) r += `<rect x="${x}" y="${y}" width="1.05" height="1.05" fill="${pal[ch]}"/>`; }));
+    return `<svg class="${cls}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;
+  }
+  const me = KBG.current();
+  const look = KBG.AVATARS[me.avatar % KBG.AVATARS.length];
+  // the player's blocky avatar, coloured from their profile face
+  const AVATAR = px([
+    '.hhhhhh.',
+    '.ffffff.',
+    '.fkffkf.',
+    '.ffffff.',
+    '.ffmmff.',
+    '..ssss..',
+    'fssssssf',
+    'f.ssss.f',
+    '..llll..',
+    '..l..l..'
+  ], { h: look.hat, f: look.face, k: '#1d2340', m: '#1d2340', s: look.hat, l: '#1d2340' });
+  const FLAG = px(['.kyyyy..', '.kyyyyy.', '.kyyyy..', '.k......', '.k......', '.k......', '.k......', 'kkk.....'], { k: '#1d2340', y: '#ffcf26' });
+  const STAR_ON = px(['....y....', '...yyy...', 'yyyyyyyyy', '.yyyyyyy.', '..yyyyy..', '.yyy.yyy.', '.yy...yy.'], { y: '#ffb800' });
+  const STAR_OFF = px(['....y....', '...yyy...', 'yyyyyyyyy', '.yyyyyyy.', '..yyyyy..', '.yyy.yyy.', '.yy...yy.'], { y: '#c9d0e4' });
+  const LOCK = px(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kyyyyyyk', 'kyykkyyk', 'kyyyyyyk', 'kkkkkkkk'], { k: '#1d2340', y: '#ffcf26' }, 'lock');
+  const TROPHY = px(['kkkkkkkkkk', 'kyyyyyyyyk', 'yyyybbyyyy', 'y.yybbyy.y', '.yyyyyyyy.', '..yyyyyy..', '...yyyy...', '....yy....', '...kyyk...', '..yyyyyy..'], { k: '#b7791f', y: '#ffcf26', b: '#3a8dff' }, 'trophy');
+  const COIN = px(['..yyyy..', '.yooooy.', 'yoyyyyoy', 'yoyooyoy', 'yoyyyyoy', '.yooooy.', '..yyyy..', '........'], { y: '#ffcf26', o: '#d99a00' });
+  const DOOR = px(['.kkkkkk.', 'kbbbbbbk', 'kbkkkkbk', 'kbkbbkbk', 'kbkkkkbk', 'kbbbbyyk', 'kbbbbyyk', 'kbbbbbbk', 'kbkkkkbk', 'kbkbbkbk', 'kbkkkkbk', 'kkkkkkkk'], { k: '#1d2340', b: '#9b6bff', y: '#ffcf26' });
+  const DOOR_OPEN = px(['.kkkkkk.', 'kwwwwwkb', 'kwwwwwkb', 'kwwwwwkb', 'kwwwwwkb', 'kwwwwwkb', 'kwwwwwkb', 'kwwwwwkb', 'kwwwwwkb', 'kwwwwwkb', 'kwwwwwkb', 'kkkkkkkb'], { k: '#1d2340', w: '#fff7c2', b: '#9b6bff' });
+  const TOWER = px(['...yy...', '...yk...', '...k....', '.rrrrrr.', '.r.rr.r.', '.rrrrrr.', '.bbbbbb.', '.b.bb.b.', '.bbbbbb.', '.gggggg.', '.g.gg.g.', '.gggggg.'], { y: '#ffcf26', k: '#1d2340', r: '#ff4f5e', b: '#3a8dff', g: '#36c46b' });
+  const MACHINES = {
+    drip: px(['........', '.kkkkkk.', '.kggggk.', '..kggk..', '...kk...', '..kyyk..', '.kyyyyk.', 'kkkkkkkk'], { k: '#1d2340', g: '#36c46b', y: '#ffcf26' }),
+    press: px(['..kkkk..', '..krrk..', 'kkkkkkkk', 'kbbbbbbk', 'kbyybbbk', 'kbyybbbk', 'kbbbbbbk', 'kkkkkkkk'], { k: '#1d2340', r: '#ff4f5e', b: '#3a8dff', y: '#ffcf26' }),
+    mega: px(['kkkkkkkk', 'kppppppk', 'kpyyyypk', 'kpyooypk', 'kpyyyypk', 'kppppppk', 'kpkkkkpk', 'kkkkkkkk'], { k: '#1d2340', p: '#9b6bff', y: '#ffcf26', o: '#d99a00' })
+  };
+  const CMD_ICON = {
+    walk: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1d2340" d="M3 10h12V5l7 7-7 7v-5H3z"/></svg>',
+    jump: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#36c46b" stroke="#1d2340" stroke-width="1.5" d="M3 20v-6h8v-6h10v12z"/><path fill="none" stroke="#1d2340" stroke-width="2.5" stroke-linecap="round" d="M4 12c1-6 6-8 10-6"/><path fill="#1d2340" d="M15 2l2 6-6 0z"/></svg>',
+    leap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#36c46b" stroke="#1d2340" stroke-width="1.5" d="M1 20v-5h6v5zM17 20v-5h6v5z"/><path fill="none" stroke="#1d2340" stroke-width="2.5" stroke-linecap="round" d="M4 12C6 3 16 3 19 10"/><path fill="#1d2340" d="M22 9l-4 5-2-6z"/></svg>',
+    wait: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffcf26" stroke="#1d2340" stroke-width="2"/><path fill="none" stroke="#1d2340" stroke-width="2.5" stroke-linecap="round" d="M12 7v5l3 2"/></svg>'
+  };
+  const ITEM_SHAPES = {
+    book: ['.kkkkk..', '.kcccck.', '.kcwcck.', '.kcccck.', '.kcccck.', '.kcccck.', '.kkkkkk.', '........'],
+    cup: ['........', 'kkkkkk..', 'kcccckkk', 'kcccck.k', 'kcccckkk', '.kcck...', '.kkkk...', '........'],
+    ball: ['..kkkk..', '.kcccck.', 'kcwccc.k', 'kcccccck', 'kcccccck', '.kcccck.', '..kkkk..', '........'],
+    box: ['........', 'kkkkkkkk', 'kcccccck', 'kcwcccck', 'kcccccck', 'kcccccck', 'kkkkkkkk', '........']
+  };
+  const itemSvg = (s, c) => px(ITEM_SHAPES[s], { k: '#1d2340', c, w: '#ffffff' });
+  const FRUIT = {
+    apple: px(['...g....', '..kgk...', '.krrrrk.', 'krrwrrrk', 'krrrrrrk', 'krrrrrrk', '.krrrrk.', '..kkkk..'], { k: '#1d2340', g: '#36c46b', r: '#ff4f5e', w: '#fff' }),
+    pear: px(['...g....', '...kk...', '..kyyk..', '..kyyk..', '.kyyyyk.', 'kyyyyyyk', 'kyyyyyyk', '.kkkkkk.'], { k: '#1d2340', g: '#36c46b', y: '#c8e04a' }),
+    star: px(['...kk...', '...yy...', 'kkyyyykk', '.kyyyyk.', '..yyyy..', '.yykkyy.', '.kk..kk.', '........'], { k: '#1d2340', y: '#ffcf26' }),
+    cherry: px(['.....g..', '....gg..', '...g.g..', '..g...g.', '.kk..kk.', 'krrk.krr', 'krrk.krr', '.kk...kk'], { k: '#1d2340', g: '#36c46b', r: '#d1294b' })
+  };
+  const leverSvg = up => `<svg viewBox="0 0 26 33" aria-hidden="true"><rect x="3" y="22" width="20" height="9" rx="2" fill="#b9c2d6" stroke="#1d2340" stroke-width="2"/><line x1="13" y1="24" x2="${up ? 7 : 19}" y2="${up ? 6 : 6}" stroke="#1d2340" stroke-width="3" stroke-linecap="round"/><circle cx="${up ? 7 : 19}" cy="6" r="4.5" fill="${up ? '#36c46b' : '#ff4f5e'}" stroke="#1d2340" stroke-width="2"/></svg>`;
+
+  // ---------- saving (per player) ----------
+  let save = Object.assign({ obby: [], escape: [], tycoon: [], endless: {} }, KBG.get('brickville', {}));
+  const AREA_KEYS = ['obby', 'escape', 'tycoon'];
+  function persist() {
+    KBG.set('brickville', save);
+    KBG.setBest('brickville', {
+      stars: AREA_KEYS.reduce((t, a) => t + save[a].reduce((s, v) => s + (v || 0), 0), 0),
+      levels: AREA_KEYS.reduce((t, a) => t + save[a].filter(Boolean).length, 0),
+      endless: Object.values(save.endless).reduce((t, v) => t + v, 0)
+    });
+  }
+
+  // ---------- screens ----------
+  const AREAS = {
+    obby: { name: 'Obby Tower', blurb: 'Plan every move, then press Go and watch your runner try it.', count: 10, color: '#ff4f5e', icon: TOWER, build: buildObby },
+    escape: { name: 'Escape Rooms', blurb: 'Read the clues, crack each lock, and get out of the room.', count: 10, color: '#9b6bff', icon: DOOR, build: buildEscape },
+    tycoon: { name: 'Tycoon Town', blurb: 'Buy coin machines and reach the goal in the fewest days.', count: 10, color: '#ffcf26', icon: MACHINES.mega, build: buildTycoon }
+  };
+  let current = null, cleanup = null;
+  const screens = ['mapScreen', 'levelScreen', 'playScreen'];
+  function showScreen(id) { screens.forEach(s => $(s).hidden = s !== id); $(id).scrollTop = 0; }
+  const starsHtml = n => [0, 1, 2].map(i => i < n ? STAR_ON : STAR_OFF).join('');
+  const totalStars = a => save[a].reduce((s, v) => s + (v || 0), 0);
+  function stopAll() { if (cleanup) { cleanup(); cleanup = null; } try { speechSynthesis.cancel(); } catch (_) {} }
+
+  function showMap() {
+    stopAll(); current = null;
+    $('title').textContent = 'Brickville';
+    $('back').hidden = true; $('hear').hidden = true;
+    $('meHero').innerHTML = AVATAR.replace('<svg', '<svg class="me"');
+    $('whoami').innerHTML = '<span></span><a href="../">Change</a>';
+    $('whoami').querySelector('span').textContent = 'Playing as ' + me.name + ' ·';
+    const wrap = $('areas'); wrap.innerHTML = '';
+    for (const [key, a] of Object.entries(AREAS)) {
+      const done = save[key].filter(Boolean).length;
+      const b = el('button', 'area'); b.type = 'button';
+      b.innerHTML = `<div class="art brick" style="--b:${a.color}">${a.icon}</div>
+        <div><b>${a.name}</b><span>${a.blurb}</span>
+        <div class="prog">${STAR_ON}<span>${totalStars(key)} / ${a.count * 3}</span><span>&middot; ${done} of ${a.count} levels</span></div></div>`;
+      b.addEventListener('click', () => { beep(523, .08); showLevels(key); });
+      wrap.appendChild(b);
+    }
+    showScreen('mapScreen');
+  }
+
+  function showLevels(key) {
+    stopAll();
+    const a = AREAS[key];
+    current = { area: key, lv: null };
+    $('title').textContent = a.name;
+    $('back').hidden = false; $('hear').hidden = true;
+    const wrap = $('levels'); wrap.innerHTML = '';
+    const firstOpen = save[key].filter(Boolean).length;
+    for (let i = 0; i < a.count; i++) {
+      const got = save[key][i] || 0, open = i <= firstOpen;
+      const b = el('button', 'lvl' + (i === firstOpen ? ' next' : ''));
+      b.type = 'button'; b.disabled = !open;
+      b.setAttribute('aria-label', 'Level ' + (i + 1) + (open ? ', ' + got + ' stars' : ', locked'));
+      b.innerHTML = open ? `<span>${i + 1}</span><span class="stars">${starsHtml(got)}</span>` : LOCK;
+      b.addEventListener('click', () => startLevel(key, i));
+      wrap.appendChild(b);
+    }
+    const finished = firstOpen >= a.count, solved = save.endless[key] || 0;
+    const e = el('button', 'lvl endless'); e.type = 'button'; e.disabled = !finished;
+    e.innerHTML = finished ? `<span class="inf">&infin;</span><span class="small">${solved} solved</span>` : LOCK + '<span class="small">Endless</span>';
+    e.setAttribute('aria-label', finished ? 'Endless puzzles, ' + solved + ' solved' : 'Endless puzzles, locked until every level is done');
+    e.addEventListener('click', () => startEndless(key));
+    wrap.appendChild(e);
+    $('areaBlurb').textContent = a.blurb + (firstOpen > 0 ? ' Replay a level for a brand-new puzzle!' : '');
+    showScreen('levelScreen');
+  }
+
+  // First play of a level is variant 0; replays and Endless are fresh; "try again" keeps the same puzzle.
+  const freshVariant = () => 1 + Math.floor(Math.random() * 1e6);
+  function startLevel(key, lv, opts = {}) {
+    stopAll();
+    const variant = opts.variant ?? (opts.endless || save[key][lv] ? freshVariant() : 0);
+    current = { area: key, lv, variant, endless: !!opts.endless };
+    $('title').textContent = AREAS[key].name + ' · ' + (opts.endless ? 'Endless' : lv + 1);
+    $('back').hidden = false; $('hear').hidden = false;
+    $('stage').innerHTML = ''; $('status').innerHTML = ''; $('actions').innerHTML = ''; $('msg').textContent = '';
+    showScreen('playScreen');
+    AREAS[key].build(lv, variant);
+    setTimeout(() => say(speech), 350);
+  }
+  function startEndless(key) { const n = AREAS[key].count; startLevel(key, n - 3 + Math.floor(Math.random() * 3), { endless: true }); }
+  function setQ(text, spoken) { $('q').textContent = text; speech = spoken || text; }
+  function msg(text, speak = true) { $('msg').textContent = text; if (speak && text) say(text); }
+  function action(label, fn, cls = '', icon = '') {
+    const b = el('button', 'btn ' + cls, icon + `<span>${label}</span>`);
+    b.type = 'button'; b.addEventListener('click', fn);
+    $('actions').appendChild(b); return b;
+  }
+
+  function win(stars, text) {
+    const { area, lv, variant, endless } = current;
+    const a = AREAS[area];
+    const btns = $('winBtns'); btns.innerHTML = '';
+    const mk = (label, fn, cls) => { const b = el('button', 'btn ' + (cls || ''), label); b.type = 'button'; b.addEventListener('click', () => { $('overlay').hidden = true; fn(); }); btns.appendChild(b); return b; };
+    if (endless) {
+      save.endless[area] = (save.endless[area] || 0) + 1; persist();
+      KBG.record('brickville-levels', { stars });
+      tune([523, 659, 784, 1047]);
+      $('winArt').innerHTML = `<div class="bigstars">${starsHtml(stars)}</div>`;
+      $('winTitle').textContent = 'Solved!';
+      $('winText').textContent = (text ? text + ' ' : '') + 'Endless puzzles solved: ' + save.endless[area] + '.';
+      mk('Back', () => showLevels(area), 'alt');
+      const nx = mk('Next puzzle', () => startEndless(area));
+      $('overlay').hidden = false; nx.focus();
+      say('Solved! ' + (text || ''));
+      return;
+    }
+    save[area][lv] = Math.max(save[area][lv] || 0, stars);
+    persist();
+    KBG.record('brickville-levels', { stars });
+    const areaDone = save[area].filter(Boolean).length === a.count && lv === a.count - 1;
+    tune(stars === 3 ? [523, 659, 784, 1047, 1319] : [523, 659, 784, 1047]);
+    $('winArt').innerHTML = areaDone ? TROPHY : `<div class="bigstars">${starsHtml(stars)}</div>`;
+    $('winTitle').textContent = areaDone ? 'You finished ' + a.name + '!' : stars === 3 ? 'Perfect!' : 'Level complete!';
+    $('winText').textContent = text || '';
+    if (stars < 3) mk('Try for 3 stars', () => startLevel(area, lv, { variant }), 'alt');
+    mk('New puzzle', () => startLevel(area, lv, { variant: freshVariant() }), 'alt');
+    const first = lv + 1 < a.count ? mk('Next level', () => startLevel(area, lv + 1)) : mk('Back to town', showMap);
+    $('overlay').hidden = false; first.focus();
+    say((areaDone ? 'You finished ' + a.name + '! ' : '') + (stars === 3 ? 'Perfect! Three stars!' : stars + (stars === 1 ? ' star!' : ' stars!')) + ' ' + (text || ''));
+  }
+  $('back').addEventListener('click', () => { stopAll(); if (current && current.lv != null) showLevels(current.area); else showMap(); });
+
+  // ======================================================================
+  // OBBY TOWER
+  // ======================================================================
+  const WHY = {
+    fall: 'Oops! Nothing to stand on there.',
+    lava: 'Ouch, lava! Leap over it.',
+    bump: 'Bonk! That block is in the way. Is it one higher? Use Jump.',
+    jumpflat: 'Jump is only for going UP one block. Use Walk on flat ground.',
+    vanish: 'The block disappeared under you! Watch the blue and red timing.',
+    short: 'Not at the flag yet. Add more moves.'
+  };
+  function buildObby(lv, variant) {
+    let O; try { O = makeObby(lv, variant); } catch (_) { O = makeObby(lv, 0); }
+    window.__bv.cur = O;
+    const { cols, best } = O, W = cols.length, MAX = best + 6;
+    const hasBlink = cols.some(c => c.k === 'b' || c.k === 'r');
+    const hasLava = cols.some(c => c.k === 'l');
+    let program = [], running = false, fails = 0, hinted = false, timers = [];
+    setQ('Plan the run to the flag!',
+      'Tap the moves to plan the whole run, then press Go. Walk goes along or down. Jump goes up one block. Leap jumps over a gap' + (hasLava ? ' or lava' : '') + '. Wait stays still for one step.'
+      + (hasBlink ? ' Blue blocks are there on even steps: 0, 2, 4. Red blocks are there on odd steps: 1, 3, 5.' : '') + ' The best plan uses ' + best + ' moves.');
+    const chip = el('div', 'chip goal', `<span>Best: ${best} moves</span>`);
+    $('status').appendChild(chip);
+    const course = el('div', 'course');
+    course.style.setProperty('--cols', W);
+    const cells = [];
+    for (let y = 4; y >= 0; y--) for (let x = 0; x < W; x++) { const c = el('div', 'cell'); course.appendChild(c); cells.push({ c, x, y }); }
+    const av = el('div', 'avatar', AVATAR);
+    course.appendChild(av);
+    $('stage').appendChild(course);
+    if (hasBlink) $('stage').appendChild(el('div', 'legend', '<span><i class="brick" style="--b:var(--blue)"></i>Blue: steps 0, 2, 4…</span><span><i class="brick" style="--b:var(--red)"></i>Red: steps 1, 3, 5…</span>'));
+    const prog = el('div', 'program');
+    $('stage').appendChild(prog);
+    const cmdRow = el('div', 'cmds');
+    const cmdBtns = OBBY_MOVES.map(m => {
+      const b = el('button', 'cmd', CMD_ICON[m] + `<span>${m[0].toUpperCase() + m.slice(1)}</span>`);
+      b.type = 'button';
+      b.addEventListener('click', () => { if (running || program.length >= MAX) return; program.push(m); beep(440 + OBBY_MOVES.indexOf(m) * 80, .06, 'sine', .1); drawProg(); msg('', false); });
+      cmdRow.appendChild(b); return b;
+    });
+    $('stage').appendChild(cmdRow);
+    function drawCourse(t) {
+      cells.forEach(({ c, x, y }) => {
+        const col = cols[x];
+        let html = '';
+        if (col.h < 0) { if (y === 0) html = '<div class="void"></div>'; }
+        else if (col.k === 'b' || col.k === 'r') {
+          if (y === col.h) html = `<div class="bk brick ${col.k === 'b' ? 'blue' : 'red'}${t != null && !present(col, t) ? ' ghost' : ''}"></div>`;
+        } else if (y <= col.h) {
+          const top = y === col.h;
+          html = `<div class="bk brick${top && col.k === 'l' ? ' lava' : ''}" style="--b:${top && col.k === 'l' ? '' : ['#36c46b', '#ffcf26', '#9b6bff', '#b9c2d6'][y]}"></div>`;
+        }
+        if (col.flag && y === col.h + 1) html += `<div class="flag">${FLAG}</div>`;
+        c.innerHTML = html;
+      });
+    }
+    function place(x, h, falling) {
+      const cell = cells.find(o => o.x === x && o.y === Math.min(4, Math.max(0, h + 1)));
+      if (!cell) return;
+      av.classList.toggle('fall', !!falling);
+      av.style.left = cell.c.offsetLeft + 'px';
+      av.style.top = (cell.c.offsetTop - cell.c.offsetHeight * .25 + (falling ? cell.c.offsetHeight * 2 : 0)) + 'px';
+    }
+    function drawProg(active = -1, bad = -1) {
+      prog.innerHTML = program.length ? program.map((m, i) => `<span class="pc ${(i + 1) % 2 ? 'odd' : 'even'}${i === active ? ' now' : ''}${i === bad ? ' bad' : ''}"><b>${i + 1}</b>${CMD_ICON[m]}</span>`).join('')
+        : '<span class="empty">Tap the moves below to plan your run</span>';
+      cmdBtns.forEach(b => b.disabled = running);
+      goBtn.disabled = running; undoBtn.disabled = running; clrBtn.disabled = running;
+    }
+    const undoBtn = action('Undo', () => { if (running) return; program.pop(); drawProg(); }, 'alt');
+    const clrBtn = action('Clear', () => { if (running) return; program = []; drawProg(); msg('', false); }, 'alt');
+    const goBtn = action('Go!', run, 'go');
+    const hintBtn = action('Hint', hint, 'alt'); hintBtn.hidden = true;
+    function run() {
+      if (running) return;
+      if (!program.length) { msg('Tap some moves first!'); return; }
+      running = true; drawProg(); msg('', false);
+      const res = obbyRun(cols, program);
+      const step = reduced ? 160 : 420;
+      res.frames.forEach((f, i) => timers.push(setTimeout(() => {
+        drawCourse(f.t);
+        if (i > 0) drawProg(i - 1);
+        const failHere = i === res.frames.length - 1 && !res.ok && res.why !== 'short';
+        const fallen = failHere && (f.why === 'fall' || f.why === 'vanish');
+        const hx = f.x < W ? cols[f.x].h : 0;
+        place(Math.min(W - 1, f.x), Math.max(0, hx), fallen);
+        if (i > 0) beep(f.ok ? 392 + i * 20 : 150, .07, f.ok ? 'triangle' : 'sawtooth', .08);
+      }, i * step)));
+      timers.push(setTimeout(() => {
+        running = false;
+        if (res.ok) {
+          drawProg();
+          const used = program.length;
+          let stars = used <= best ? 3 : used <= best + 2 ? 2 : 1;
+          if (hinted) stars = Math.min(2, stars);
+          tune([659, 784, 1047], 90);
+          setTimeout(() => win(stars, used <= best ? 'Only ' + used + ' moves. A perfect plan!' : 'You made it in ' + used + ' moves. The best is ' + best + '.'), 400);
+          return;
+        }
+        fails++;
+        drawProg(-1, res.why === 'short' ? -1 : res.frames.length - 2);
+        msg(WHY[res.why] + ' Fix your plan and press Go again.');
+        if (fails >= 2) hintBtn.hidden = false;
+        timers.push(setTimeout(() => { drawCourse(0); place(0, cols[0].h); }, 1200));
+      }, res.frames.length * step + 150));
+    }
+    function hint() {
+      if (running) return;
+      // keep the longest start of the plan that can still finish, then suggest the next move
+      let x = 0, t = 0, good = 0;
+      for (let i = 0; i < program.length; i++) {
+        const r = obbyStep(cols, x, t, program[i]);
+        if (!r.ok || !obbySolve(cols, r.t, r.x)) break;
+        x = r.x; t = r.t; good = i + 1;
+      }
+      const rest = obbySolve(cols, t, x);
+      hinted = true;
+      program = program.slice(0, good);
+      drawProg();
+      msg((good ? 'Your first ' + good + (good === 1 ? ' move is' : ' moves are') + ' good. ' : '') + 'Next, try ' + (rest && rest[0] ? rest[0].toUpperCase() : 'WALK') + '. Hints make the most stars 2.');
+    }
+    const onResize = () => place(0, cols[0].h);
+    addEventListener('resize', onResize);
+    cleanup = () => { timers.forEach(clearTimeout); timers = []; removeEventListener('resize', onResize); };
+    drawCourse(0); drawProg();
+    requestAnimationFrame(() => place(0, cols[0].h));
+  }
+
+  // ======================================================================
+  // ESCAPE ROOMS
+  // ======================================================================
+  function clueHtml(L) {
+    if (L.kind === 'count') {
+      return `<div class="shelf">${L.items.map(i => itemSvg(i.s, ECOLORS[i.c])).join('')}</div>
+        <div class="note">The code is how many ${L.order.map(c => `<span class="swatch" style="background:${ECOLORS[c]}"></span>`).join(' then ')} things there are.</div>`;
+    }
+    if (L.kind === 'pattern') return `<div class="note">The code is the next number:<div class="seq">${L.seq.join(', ')}, ?</div></div>`;
+    if (L.kind === 'equation') {
+      const row = (terms, val) => `<div class="eq">${terms.map(i => FRUIT[L.icons[i]]).join('<span>+</span>')}<span>= ${val}</span></div>`;
+      return `<div class="note">${L.eqs.map(([t, v]) => row(t, v)).join('')}<div class="eq">${FRUIT[L.icons[L.ask]]}<span>= ?</span></div></div>`;
+    }
+    if (L.kind === 'copy') return `<div class="note">A note on the wall:<div class="levers">${L.answer.map((u, i) => `<span class="lever">${leverSvg(u)}${'ABCD'[i]}</span>`).join('')}</div></div>`;
+    if (L.kind === 'logic') return `<div class="note"><ul>${L.clues.map(c => `<li>${c}</li>`).join('')}</ul></div>`;
+    if (L.kind === 'order') return `<div class="note">Put the colours in order:<ul>${L.clues.map(c => `<li>${c}</li>`).join('')}</ul></div>`;
+  }
+  const lockName = { count: 'Safe', pattern: 'Number lock', equation: 'Fruit lock', copy: 'Lever box', logic: 'Lever puzzle', order: 'Colour door' };
+  function clueSpeech(L) {
+    if (L.kind === 'count') return 'Count the things on the shelf. The code is how many ' + L.order.join(', then how many ') + ' things there are.';
+    if (L.kind === 'pattern') return 'What comes next? ' + L.seq.join(', ') + '.';
+    if (L.kind === 'equation') return L.eqs.map(([t, v]) => t.map(i => L.icons[i]).join(' plus ') + ' equals ' + v).join('. ') + '. What is ' + L.icons[L.ask] + '?';
+    if (L.kind === 'copy') return 'Set the levers to match the note on the wall.';
+    if (L.kind === 'logic') return 'Set the levers. ' + L.clues.join(' ');
+    if (L.kind === 'order') return 'Put the colours in order. ' + L.clues.join(' ');
+  }
+  function buildEscape(lv, variant) {
+    const E = makeEscape(lv, variant);
+    window.__bv.cur = E;
+    let stage = 0, wrong = 0, wrongHere = 0, hinted = false;
+    setQ(E.locks.length === 1 ? 'Crack the lock to escape!' : 'Crack ' + E.locks.length + ' locks to escape!', 'Each lock has a clue. Solve one lock to get to the next. Then open the door!');
+    const room = el('div', 'room');
+    $('stage').appendChild(room);
+    const exitBtn = action('Open the door', () => {}, 'go'); exitBtn.hidden = true;
+    const hintBtn = action('Hint', hint, 'alt');
+    let input = null;
+    function render() {
+      room.innerHTML = '';
+      E.locks.forEach((L, i) => {
+        if (i < stage) { room.appendChild(el('div', 'station done', `<h3>&#10003; ${lockName[L.kind]} open</h3>`)); return; }
+        if (i > stage) { room.appendChild(el('div', 'station locked', `<h3>${LOCK} ${lockName[L.kind]}: open the one above first</h3>`)); return; }
+        const st = el('div', 'station', `<h3>${i + 1}. ${lockName[L.kind]}</h3>${clueHtml(L)}`);
+        st.appendChild(control(L));
+        const tryBtn = el('button', 'btn', 'Try it'); tryBtn.type = 'button';
+        tryBtn.addEventListener('click', () => attempt(L, st));
+        st.appendChild(tryBtn);
+        room.appendChild(st);
+      });
+      const exit = el('div', 'station ' + (stage >= E.locks.length ? '' : 'locked'), `<span class="exit">${stage >= E.locks.length ? DOOR_OPEN : DOOR}</span><h3>Exit door</h3>`);
+      room.appendChild(exit);
+      if (stage < E.locks.length) speech = clueSpeech(E.locks[stage]);
+    }
+    function control(L) {
+      const box = el('div');
+      if (L.type === 'digits') {
+        input = Array(L.digits).fill(0);
+        box.className = 'dials';
+        input.forEach((_, d) => {
+          const dial = el('div', 'dial' + (L.kind === 'count' ? ' c' : ''));
+          if (L.kind === 'count') dial.style.setProperty('--dc', ECOLORS[L.order[d]]);
+          const out = el('output', '', '0');
+          const up = el('button', '', '&#9650;'), dn = el('button', '', '&#9660;');
+          up.type = dn.type = 'button';
+          up.setAttribute('aria-label', 'Digit ' + (d + 1) + ' up'); dn.setAttribute('aria-label', 'Digit ' + (d + 1) + ' down');
+          up.addEventListener('click', () => { input[d] = (input[d] + 1) % 10; out.textContent = input[d]; beep(600, .03, 'square', .05); });
+          dn.addEventListener('click', () => { input[d] = (input[d] + 9) % 10; out.textContent = input[d]; beep(500, .03, 'square', .05); });
+          dial.append(up, out, dn); box.appendChild(dial);
+        });
+      } else if (L.type === 'levers') {
+        input = Array(L.n).fill(false);
+        box.className = 'levers';
+        input.forEach((_, i) => {
+          const b = el('button', 'lever'); b.type = 'button';
+          const draw = () => { b.innerHTML = leverSvg(input[i]) + 'ABCD'[i]; b.setAttribute('aria-label', 'Lever ' + 'ABCD'[i] + ', ' + (input[i] ? 'up' : 'down')); };
+          b.addEventListener('click', () => { input[i] = !input[i]; draw(); beep(input[i] ? 520 : 380, .05); });
+          draw(); box.appendChild(b);
+        });
+      } else {
+        input = Array(L.n).fill(null);
+        const slots = el('div', 'slots'), pal = el('div', 'palette');
+        const draw = () => {
+          slots.innerHTML = '';
+          input.forEach((c, i) => {
+            const s = el('button', 'slot', c ? '' : String(i + 1)); s.type = 'button';
+            if (c) s.style.background = ECOLORS[c];
+            s.setAttribute('aria-label', 'Place ' + (i + 1) + ': ' + (c || 'empty'));
+            s.addEventListener('click', () => { input[i] = null; draw(); });
+            slots.appendChild(s);
+          });
+        };
+        L.palette.forEach(c => {
+          const p = el('button', 'paint'); p.type = 'button'; p.style.background = ECOLORS[c]; p.setAttribute('aria-label', c);
+          p.addEventListener('click', () => { const i = input.indexOf(null); if (i < 0) return; if (input.includes(c)) { input[input.indexOf(c)] = null; } const j = input.indexOf(null); input[j] = c; draw(); beep(560, .04); });
+          pal.appendChild(p);
+        });
+        draw();
+        box.append(slots, pal); box.className = 'col'; box.style.gap = '10px';
+      }
+      return box;
+    }
+    function attempt(L, st) {
+      const ok = JSON.stringify(input) === JSON.stringify(L.answer);
+      if (ok) {
+        stage++; wrongHere = 0; tune([523, 784, 1047], 80);
+        msg(stage >= E.locks.length ? 'The door is open! Tap Open the door.' : 'Click! It opened. On to the next lock.', true);
+        render();
+        if (stage >= E.locks.length) { exitBtn.hidden = false; hintBtn.hidden = true; exitBtn.focus(); }
+        return;
+      }
+      wrong++; wrongHere++;
+      st.classList.remove('shake'); void st.offsetWidth; st.classList.add('shake');
+      beep(150, .25, 'sawtooth', .05);
+      msg('Not quite. ' + (wrongHere >= 2 ? 'Tap Hint if you are stuck.' : 'Check the clue again.'));
+    }
+    function hint() {
+      if (stage >= E.locks.length) return;
+      const L = E.locks[stage]; hinted = true;
+      let h;
+      if (L.kind === 'count') h = 'There ' + (L.answer[0] === 1 ? 'is 1 ' : 'are ' + L.answer[0] + ' ') + L.order[0] + ' thing' + (L.answer[0] === 1 ? '' : 's') + '. Now count the next colour.';
+      else if (L.kind === 'pattern') h = 'Look at how much it goes up each time: ' + L.seq.slice(1).map((v, i) => '+' + (v - L.seq[i])).join(', ') + '.';
+      else if (L.kind === 'equation') h = 'First work out the ' + L.icons[0] + ': it is ' + (L.eqs[0][1] / L.eqs[0][0].length) + '.';
+      else if (L.kind === 'copy') h = 'Lever A should be ' + (L.answer[0] ? 'up' : 'down') + '.';
+      else if (L.kind === 'logic') h = 'Start with the clue that tells you exactly: ' + L.clues[0];
+      else h = L.answer[0][0].toUpperCase() + L.answer[0].slice(1) + ' goes first.';
+      msg(h + ' Hints make the most stars 2.');
+    }
+    exitBtn.addEventListener('click', () => {
+      let stars = wrong === 0 ? 3 : wrong <= 2 ? 2 : 1;
+      if (hinted) stars = Math.min(2, stars);
+      win(stars, wrong === 0 ? 'No wrong tries at all!' : 'You escaped!');
+    });
+    render();
+  }
+
+  // ======================================================================
+  // TYCOON TOWN
+  // ======================================================================
+  function buildTycoon(lv, variant) {
+    let T; try { T = makeTycoon(lv, variant); } catch (_) { T = makeTycoon(lv, 0); }
+    window.__bv.cur = T;
+    let coins, owned, day, boughtToday, hinted, done;
+    setQ('Reach ' + T.goal + ' coins in ' + T.best + ' days!',
+      'Each machine makes coins every day. Spend coins on machines now to earn more later, or save up for a bigger one. Reach ' + T.goal + ' coins. The best plan takes ' + T.best + ' days.');
+    const dayChip = el('div', 'chip'), coinChip = el('div', 'chip goal'), bestChip = el('div', 'chip');
+    $('status').append(dayChip, coinChip, bestChip);
+    const bar = el('div', 'goalbar', '<i></i>');
+    const base = el('div', 'base');
+    const shop = el('div', 'shop');
+    $('stage').append(bar, base, shop);
+    const items = T.shop.map((s, i) => {
+      const it = el('div', 'item');
+      it.innerHTML = `${MACHINES[s.icon]}<b>${s.name}</b><span class="info">Costs ${s.cost} &middot; +${s.income} a day</span><span class="info own"></span>`;
+      const b = el('button', 'btn', 'Buy'); b.type = 'button';
+      b.addEventListener('click', () => buy(i));
+      it.appendChild(b); shop.appendChild(it);
+      return { it, b, own: it.querySelector('.own') };
+    });
+    const nextBtn = action('Next day', nextDay, 'go');
+    const undoBtn = action('Undo buy', undo, 'alt');
+    action('Start again', reset, 'alt');
+    action('Hint', hint, 'alt');
+    const income = () => owned.reduce((s, k, i) => s + k * T.shop[i].income, 0);
+    function reset() { coins = T.coins; owned = T.shop.map(() => 0); day = 0; boughtToday = []; hinted = false; done = false; msg('', false); draw(); }
+    function draw(hintSet) {
+      dayChip.innerHTML = `<span>Day ${day + 1}</span>`;
+      coinChip.innerHTML = COIN + `<span>${coins} / ${T.goal}</span>`;
+      bestChip.innerHTML = `<span>Best: ${T.best} days</span>`;
+      bar.firstChild.style.width = Math.min(100, coins / T.goal * 100) + '%';
+      base.innerHTML = owned.some(Boolean) ? '' : '<span class="empty">No machines yet. Buy one below!</span>';
+      owned.forEach((k, i) => { for (let j = 0; j < k; j++) base.appendChild(el('div', 'm', MACHINES[T.shop[i].icon])); });
+      items.forEach((o, i) => {
+        const s = T.shop[i];
+        o.own.textContent = 'You have ' + owned[i] + ' of ' + s.max;
+        o.b.disabled = done || coins < s.cost || owned[i] >= s.max;
+        o.it.classList.toggle('hinted', !!(hintSet && hintSet.includes(i)));
+      });
+      undoBtn.disabled = done || !boughtToday.length;
+      nextBtn.disabled = done;
+      nextBtn.querySelector('span').textContent = 'Next day (+' + income() + ')';
+    }
+    function buy(i) {
+      const s = T.shop[i];
+      if (done || coins < s.cost || owned[i] >= s.max) return;
+      coins -= s.cost; owned[i]++; boughtToday.push(i);
+      beep(660, .08, 'triangle', .12); msg('', false); draw();
+    }
+    function undo() {
+      const i = boughtToday.pop(); if (i == null) return;
+      coins += T.shop[i].cost; owned[i]--; draw();
+    }
+    function nextDay() {
+      if (done) return;
+      const inc = income();
+      day++; coins += inc; boughtToday = [];
+      const pop = el('span', 'coin-pop', '+' + inc);
+      pop.style.left = '45%'; pop.style.top = '30%';
+      base.appendChild(pop);
+      if (inc) tune([880, 988], 60, 'square'); else beep(220, .1);
+      draw();
+      base.appendChild(pop);
+      if (coins >= T.goal) {
+        done = true; draw();
+        let stars = day <= T.best ? 3 : day <= T.best + 2 ? 2 : 1;
+        if (hinted) stars = Math.min(2, stars);
+        setTimeout(() => win(stars, day <= T.best ? 'Only ' + day + ' days. A perfect plan!' : 'You did it in ' + day + ' days. The best plan takes ' + T.best + '.'), 500);
+        return;
+      }
+      if (day >= T.best + 8) msg('This is taking a long time. Tap Start again and try buying machines earlier.');
+    }
+    function hint() {
+      if (done) return;
+      const plan = tycoonBest(T, { coins, owned: owned.slice() }).plan[0] || [];
+      hinted = true;
+      const counts = T.shop.map((_, i) => plan.filter(x => x === i).length);
+      const words = counts.map((n, i) => n ? n + ' ' + T.shop[i].name + (n > 1 ? 's' : '') : '').filter(Boolean);
+      draw(plan);
+      msg((words.length ? 'Today, buy ' + words.join(' and ') + '.' : 'Today, buy nothing. Save your coins!') + ' Hints make the most stars 2.');
+    }
+    reset();
+  }
+
+  // ---------- go ----------
+  window.__bv = { makeObby, obbyRun, obbySolve, makeEscape, makeTycoon, tycoonBest, startLevel, AREAS };
+  showMap();
+  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}));
+})();
+</script>
+</body>
+</html>

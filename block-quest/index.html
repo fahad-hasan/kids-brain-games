@@ -229,6 +229,34 @@ button { font: inherit; color: inherit; }
 .sidebar { background: #ff9f43; grid-column: 2; grid-row: 1; writing-mode: vertical-rl; }
 body.yard { background: #3b4a6b; }
 
+.yb {
+  --c: clamp(40px, min(calc(52vw / var(--n)), calc(26dvh / var(--n))), 64px);
+  --t: calc(var(--c) * .42);
+  display: grid; gap: 6px;
+  grid-template-columns: calc(var(--c) * var(--n) + 4px * (var(--n) - 1)) calc(var(--t) * var(--mh) + 2px * (var(--mh) - 1));
+  grid-template-areas: "fcap tcap" "fv tv" "pad sv" "fbar scap";
+  align-items: end;
+}
+.yb .cap { font-size: .8rem; font-weight: 800; letter-spacing: .04em; text-align: center; }
+.yb .cap.f { grid-area: fcap; color: #5aa6f0; } .yb .cap.t { grid-area: tcap; color: #f4e3b5; } .yb .cap.s { grid-area: scap; color: #ff9f43; align-self: start; }
+.fview { grid-area: fv; display: grid; grid-template-columns: repeat(var(--n), var(--c)); grid-template-rows: repeat(var(--mh), var(--t)); gap: 2px 4px; }
+.sview { grid-area: sv; display: grid; grid-template-rows: repeat(var(--n), var(--c)); grid-template-columns: repeat(var(--mh), var(--t)); gap: 4px 2px; align-self: stretch; }
+.tview { grid-area: tv; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 2px; padding: 3px; background: rgba(0,0,0,.25); border-radius: 4px; }
+.tview i { aspect-ratio: 1; }
+.fview i, .sview i, .tview i { border-radius: 3px; background: rgba(255,255,255,.07); }
+.fview i.on { background: #5aa6f0; box-shadow: inset 0 0 0 2px rgba(0,0,0,.3); }
+.sview i.on { background: #ff9f43; box-shadow: inset 0 0 0 2px rgba(0,0,0,.3); }
+.tview i.on { background: #f4e3b5; box-shadow: inset 0 0 0 2px rgba(0,0,0,.3); }
+.fview i.bad, .sview i.bad, .tview i.bad { outline: 3px solid var(--bad); outline-offset: -1px; }
+.fview.off, .sview.off, .tview.off { visibility: hidden; }
+.yb .hgrid { grid-area: pad; width: auto; grid-template-columns: repeat(var(--n), var(--c)); gap: 4px; }
+.yb .hcell { width: var(--c); height: var(--c); }
+.yb .hcell.miss { box-shadow: inset 0 0 0 3px var(--bad); }
+.yb .frontbar { grid-area: fbar; height: 18px; }
+.yb.plain { grid-template-areas: "pad" "fbar"; grid-template-columns: auto; }
+.yb.plain .fview, .yb.plain .sview, .yb.plain .tview, .yb.plain .cap { display: none; }
+.iso.small { width: min(60vw, 220px); height: min(44vw, 170px); }
+
 /* village market */
 body.market { background: #4a6b3b; }
 .goalbox, .pack { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; background: var(--panel); }
@@ -1248,34 +1276,46 @@ body.farm { background: var(--sky); }
     const Q = {
       picture: ['Build this!', 'Copy the picture. Tap a square to stack a block on it. Tap again to stack more.'],
       fronttop: ['Build it from two views!', 'Look at the build from the front and from the top. Tap the squares to stack blocks so yours looks the same.'],
-      three: ['Build it from three views!', 'The blue view is from the front, the orange view is from the side, and the last one is from the top. Build something that looks the same from all three.'],
+      three: ['Build it from three views!', 'The blue blocks above the grid show the front: each column shows its tallest stack. The orange blocks beside the grid show the side: each row shows its tallest stack. The corner shows the top. Build something that matches all three.'],
       fewest: ['Match the views with the fewest blocks!', 'Build something that looks the same from the front, the side and the top, using as few blocks as you can. Only ' + B.goal + ' blocks are needed!'],
       fewest2: ['Front and side only. Fewest blocks!', 'This time you only see the front and the side. Match them using the fewest blocks. It can be done with ' + B.goal + ' blocks.'],
       most: ['Match the views with the most blocks!', 'Build something that matches all three views, using as many blocks as possible. Can you fit ' + B.goal + ' blocks?']
     }[mode];
     setQ(...Q);
 
-    const targetRow = el('div', 'views');
     if (mode === 'picture') {
-      const cv = el('canvas', 'iso target'); targetRow.appendChild(cv);
+      const pic = el('div', 'views');
+      const cv = el('canvas', 'iso target'); pic.appendChild(cv);
+      $('stage').appendChild(pic);
       requestAnimationFrame(() => drawIso(cv, B.h, N, maxH, false));
-    } else shown.forEach(k => targetRow.appendChild(viewPanel(k, v, N, maxH)));
-    $('stage').appendChild(targetRow);
-
-    const work = el('div', 'work');
-    const preview = el('canvas', 'iso');
+    }
+    // Clues sit right next to the part of the grid they describe, like a puzzle grid:
+    // front view above the grid (one stack per grid column), side view beside it (one stack per grid row,
+    // growing to the right), and the top view in the corner.
+    const showF = shown.includes('front'), showS = shown.includes('side'), showT = shown.includes('top');
+    const board = el('div', 'yb' + (mode === 'picture' ? ' plain' : ''));
+    board.style.setProperty('--n', N); board.style.setProperty('--mh', maxH);
+    const fcap = el('span', 'cap f', showF ? 'Front view' : ''), tcap = el('span', 'cap t', showT ? 'Top' : '');
+    const fv = el('div', 'fview' + (showF ? '' : ' off'));
+    for (let z = maxH - 1; z >= 0; z--) for (let x = 0; x < N; x++) fv.appendChild(el('i', showF && v.front[x] > z ? 'on' : ''));
+    const tv = el('div', 'tview' + (showT ? '' : ' off'));
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) tv.appendChild(el('i', showT && v.top[y][x] ? 'on' : ''));
     const pad = el('div', 'hgrid');
-    pad.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
     const btns = [];
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const b = el('button', 'hcell'); b.type = 'button';
       b.addEventListener('click', () => { if (done) return; h[y][x] = (h[y][x] + 1) % (maxH + 1); beep(330 + h[y][x] * 110, .06, 'square', .06); draw(); });
       pad.appendChild(b); btns.push(b);
     }
-    const padWrap = el('div', 'padwrap');
-    padWrap.append(pad, el('span', 'frontbar', 'FRONT'), el('span', 'sidebar', 'SIDE'));
-    work.append(preview, padWrap);
-    $('stage').appendChild(work);
+    const sv = el('div', 'sview' + (showS ? '' : ' off'));
+    for (let y = 0; y < N; y++) for (let z = 0; z < maxH; z++) sv.appendChild(el('i', showS && v.side[y] > z ? 'on' : ''));
+    const scap = el('span', 'cap s', showS ? 'Side view' : '');
+    board.append(fcap, tcap, fv, tv, pad, sv, el('span', 'frontbar', 'FRONT'), scap);
+    if (showF || showS || showT) fv.setAttribute('aria-label', 'Front view: column heights ' + v.front.join(', '));
+    if (showS) sv.setAttribute('aria-label', 'Side view: row heights from back to front ' + v.side.join(', '));
+    $('stage').appendChild(board);
+    const preview = el('canvas', 'iso small');
+    $('stage').appendChild(preview);
     const countChip = el('div', 'chip');
     $('status').appendChild(countChip);
 
@@ -1283,24 +1323,26 @@ body.farm { background: var(--sky); }
       btns.forEach((b, i) => {
         const x = i % N, y = Math.floor(i / N), k = h[y][x];
         b.textContent = k || '';
-        b.className = 'hcell h' + k;
+        b.className = 'hcell h' + k + (bad && (bad.cols.has(x) || bad.rows.has(y) || bad.cells.has(i)) ? ' miss' : '');
         b.setAttribute('aria-label', 'Row ' + (y + 1) + ', column ' + (x + 1) + ': ' + k + (k === 1 ? ' block' : ' blocks'));
       });
+      [...fv.children].forEach((c, i) => c.classList.toggle('bad', !!(bad && bad.cols.has(i % N))));
+      [...sv.children].forEach((c, i) => c.classList.toggle('bad', !!(bad && bad.rows.has(Math.floor(i / maxH)))));
+      [...tv.children].forEach((c, i) => c.classList.toggle('bad', !!(bad && bad.cells.has(i))));
       drawIso(preview, h, N, maxH, true);
       const n = blockCount(h);
-      countChip.textContent = n + (n === 1 ? ' block' : ' blocks') + (mode === 'fewest' || mode === 'fewest2' ? ' · goal: ' + B.goal : mode === 'most' ? ' · goal: ' + B.goal : '');
-      targetRow.querySelectorAll('.view').forEach(p => p.classList.toggle('bad', !!(bad && bad.has(p.classList[1]))));
+      countChip.textContent = n + (n === 1 ? ' block' : ' blocks') + (mode === 'fewest' || mode === 'fewest2' || mode === 'most' ? ' · goal: ' + B.goal : '');
     }
     action('Clear', () => { if (done) return; h = h.map(r => r.map(() => 0)); draw(); msg('', false); }, 'alt');
     action('Check', () => {
       if (done) return;
       const w = viewsOf(h);
-      const bad = new Set();
-      if (check.front && w.front.join() !== v.front.join()) bad.add('front');
-      if (check.side && w.side.join() !== v.side.join()) bad.add('side');
-      if (check.top && w.top.flat().join() !== v.top.flat().join()) bad.add('top');
+      const bad = { cols: new Set(), rows: new Set(), cells: new Set() };
+      if (check.front) w.front.forEach((f, x) => { if (f !== v.front[x]) bad.cols.add(x); });
+      if (check.side) w.side.forEach((f, y) => { if (f !== v.side[y]) bad.rows.add(y); });
+      if (check.top) w.top.flat().forEach((t, i) => { if (t !== v.top.flat()[i]) bad.cells.add(i); });
       const n = blockCount(h);
-      if (!bad.size) {
+      if (!bad.cols.size && !bad.rows.size && !bad.cells.size) {
         if ((mode === 'fewest' || mode === 'fewest2') && n > B.goal) { tries++; msg('It matches! But it can be done with only ' + B.goal + ' blocks. Which blocks are hidden from every view?'); beep(200, .2); return; }
         if (mode === 'most' && n < B.goal) { tries++; msg('It matches! But you can fit ' + B.goal + ' blocks. Where could more blocks hide?'); beep(200, .2); return; }
         done = true;
@@ -1309,11 +1351,15 @@ body.farm { background: var(--sky); }
       }
       tries++;
       beep(160, .25, 'sawtooth', .05);
-      const names = [...bad].map(k => ({ front: 'front', side: 'side', top: 'top' }[k]));
-      let m = mode === 'picture' ? 'Not quite. Compare your build with the picture, one block at a time.' : 'Not yet! It doesn\'t match from the ' + names.join(' or the ') + '.';
-      if (mode !== 'picture' && tries >= 2) m += bad.has('front') ? ' Blue view: each column shows the tallest stack in that column.' : bad.has('side') ? ' Orange view: the front of your build is on the left.' : ' Top view: every coloured square needs at least one block.';
+      const colName = x => N === 3 ? ['left', 'middle', 'right'][x] + ' column' : 'column ' + (x + 1);
+      const rowName = y => y === 0 ? 'back row' : y === N - 1 ? 'front row' : N === 3 ? 'middle row' : 'row ' + (y + 1);
+      let m;
+      if (mode === 'picture') m = 'Not quite. Compare your build with the picture, one block at a time.';
+      else if (bad.cols.size) { const x = [...bad.cols][0]; m = 'Not yet! From the front, the ' + colName(x) + ' should be ' + v.front[x] + ' tall, but yours is ' + w.front[x] + '. Its tallest stack decides.'; }
+      else if (bad.rows.size) { const y = [...bad.rows][0]; m = 'Not yet! From the side, the ' + rowName(y) + ' should be ' + v.side[y] + ' tall, but yours is ' + w.side[y] + '. Its tallest stack decides.'; }
+      else m = 'Not yet! From the top, the red squares don\'t match. Every coloured square in the corner needs at least one block.';
       msg(m);
-      draw(bad);
+      draw(mode === 'picture' ? null : bad);
     });
     const onResize = () => draw();
     addEventListener('resize', onResize);

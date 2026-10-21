@@ -202,7 +202,8 @@ const GAMES = [
       const sc = KBG.scores('rocket', id), save = KBG.get('rocket', {}, id);
       return { played: sc.plays > 0 || (save.trophies || 0) > 0, best: sc.best.stars || 0, level: sc.best.level || 0, trophies: save.trophies || 0,
         text: `Best ${sc.best.stars || 0} stars · level ${sc.best.level || 1} · ${save.trophies || 0} ${save.trophies === 1 ? 'trophy' : 'trophies'}` };
-    }
+    },
+    board: [['Rocket stars', st => st.best], ['Level', st => st.level], ['Trophies', st => st.trophies]]
   },
   {
     slug: 'block-quest',
@@ -217,7 +218,24 @@ const GAMES = [
       const levels = areas.reduce((t, a) => t + (save[a] || []).filter(Boolean).length, 0);
       const endless = Object.values(save.endless || {}).reduce((t, v) => t + v, 0);
       return { played: levels > 0, stars, levels, endless, text: `${stars} / 144 stars · ${levels} of 48 levels` + (endless ? ` · ${endless} endless` : '') };
-    }
+    },
+    board: [['Block stars', st => st.stars], ['Block endless', st => st.endless]]
+  },
+  {
+    slug: 'brickville',
+    title: 'Brickville',
+    blurb: 'Plan your obby run move by move, crack escape-room locks with clues, and grow a coin tycoon in the fewest days.',
+    skills: ['Sequencing', 'Deduction', 'Money maths', 'Planning ahead'],
+    accent: '#3a8dff', accentDark: '#1d2340',
+    stats: id => {
+      const save = KBG.get('brickville', {}, id);
+      const areas = ['obby', 'escape', 'tycoon'];
+      const stars = areas.reduce((t, a) => t + (save[a] || []).reduce((s, v) => s + (v || 0), 0), 0);
+      const levels = areas.reduce((t, a) => t + (save[a] || []).filter(Boolean).length, 0);
+      const endless = Object.values(save.endless || {}).reduce((t, v) => t + v, 0);
+      return { played: levels > 0, stars, levels, endless, text: `${stars} / 90 stars · ${levels} of 30 levels` + (endless ? ` · ${endless} endless` : '') };
+    },
+    board: [['Brick stars', st => st.stars], ['Brick endless', st => st.endless]]
   }
 ];
 
@@ -248,12 +266,10 @@ function renderWho() {
 
 function renderBoard() {
   const me = KBG.current();
-  const rows = KBG.players().map(p => ({ p, r: GAMES[0].stats(p.id), b: GAMES[1].stats(p.id) }));
+  // every game adds its own columns
+  const rows = KBG.players().map(p => ({ p, st: GAMES.map(g => g.stats(p.id)) }));
+  const cols = GAMES.flatMap((g, gi) => g.board.map(([label, f]) => [label, x => f(x.st[gi])]));
   const top = k => Math.max(0, ...rows.map(x => k(x)));
-  const cols = [
-    ['Rocket stars', x => x.r.best], ['Level', x => x.r.level], ['Trophies', x => x.r.trophies],
-    ['Block stars', x => x.b.stars], ['Endless', x => x.b.endless]
-  ];
   $('board').innerHTML = '<thead><tr><th scope="col">Player</th>' + cols.map(([h]) => `<th scope="col">${h}</th>`).join('') + '</tr></thead><tbody>' +
     rows.map(x => `<tr class="${x.p.id === me.id ? 'me' : ''}"><td><span class="pl">${KBG.avatarSvg(x.p.avatar)}${esc(x.p.name)}</span></td>` +
       cols.map(([, k]) => { const v = k(x), t = top(k); return `<td class="${rows.length > 1 && v > 0 && v === t ? 'top' : ''}">${v}</td>`; }).join('') + '</tr>').join('') + '</tbody>';
