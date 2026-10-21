@@ -1,6 +1,6 @@
 // Kids Brain Games service worker: caches every game so the whole collection plays offline.
 // When you add a game or change any file: add new files to FILES and bump VERSION.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'kids-brain-games-' + VERSION;
 const FILES = [
   './',

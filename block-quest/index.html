@@ -198,6 +198,53 @@ button { font: inherit; color: inherit; }
 .pal i svg { width: 100%; height: 100%; }
 .pal[aria-pressed="true"] { box-shadow: inset 0 0 0 4px var(--gold), 0 0 0 3px var(--gold); transform: translateY(-3px); }
 
+/* builder's yard */
+.views { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.view { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border-radius: 6px; background: var(--panel); box-shadow: inset 0 0 0 3px var(--vc); }
+.view.front { --vc: #5aa6f0; } .view.side { --vc: #ff9f43; } .view.top { --vc: #f4e3b5; }
+.view.bad { box-shadow: inset 0 0 0 4px var(--bad); }
+.view span { font-weight: 800; font-size: .9rem; color: var(--vc); }
+.view.bad span { color: var(--bad); }
+.vgrid { display: grid; gap: 2px; }
+.vgrid i { width: clamp(16px, 5vw, 22px); height: clamp(16px, 5vw, 22px); background: rgba(255,255,255,.08); border-radius: 2px; }
+.vgrid i.on { background: var(--vc); box-shadow: inset 0 0 0 2px rgba(0,0,0,.35); }
+.iso { width: min(46vw, 210px); height: min(42vw, 190px); max-width: 100%; }
+.iso.target { width: min(70vw, 260px); height: min(60vw, 220px); background: var(--panel); border-radius: 6px; }
+.work { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; }
+.padwrap { display: grid; grid-template-columns: auto 18px; grid-template-rows: auto 18px; gap: 4px; }
+.hgrid { display: grid; gap: 4px; width: min(42vw, 190px); }
+.hcell { aspect-ratio: 1; max-width: 100%; border: none; border-radius: 4px; cursor: pointer; font-weight: 800; font-size: 1.5rem; color: var(--ink-dark); background: rgba(255,255,255,.12); box-shadow: inset 0 0 0 2px rgba(255,255,255,.2); }
+.hcell.h1 { background: #f4e3b5; } .hcell.h2 { background: #e8c86e; } .hcell.h3 { background: #d9a520; } .hcell.h4 { background: #b7791f; }
+.frontbar, .sidebar { font-size: .7rem; font-weight: 800; letter-spacing: .08em; display: grid; place-items: center; border-radius: 3px; color: var(--ink-dark); }
+.frontbar { background: #5aa6f0; grid-column: 1; grid-row: 2; }
+.sidebar { background: #ff9f43; grid-column: 2; grid-row: 1; writing-mode: vertical-rl; }
+body.yard { background: #3b4a6b; }
+
+/* village market */
+body.market { background: #4a6b3b; }
+.goalbox, .pack { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; background: var(--panel); }
+.goalbox { box-shadow: inset 0 0 0 3px var(--gold); }
+.lbl { font-size: .8rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .8; margin-right: 4px; }
+.it { display: inline-flex; align-items: center; gap: 2px; font-weight: 800; font-size: 1.15rem; }
+.it svg { width: 32px; height: 32px; image-rendering: pixelated; }
+.goalbox .it { opacity: .45; } .goalbox .it.got { opacity: 1; }
+.pack .empty { opacity: .6; }
+.stalls { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; }
+.stall {
+  display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: nowrap;
+  padding: 8px 4px; min-height: 54px; min-width: 0; border: none; border-radius: 6px; cursor: pointer; color: var(--ink-dark);
+  background: #f4e3b5 var(--t-plank) 0 0 / 40px 40px; image-rendering: pixelated;
+  box-shadow: 0 4px 0 #8e5f2e, inset 0 0 0 3px rgba(0,0,0,.15);
+}
+.stall .give, .stall .get { display: inline-flex; align-items: center; gap: 1px; background: rgba(30,20,10,.82); color: var(--ink); border-radius: 4px; padding: 2px 5px; white-space: nowrap; }
+.stall .it svg { width: 26px; height: 26px; }
+.stall .it { font-size: 1.05rem; }
+.stall .plus { font-weight: 800; margin: 0 1px; }
+.stall .arr { font-weight: 800; font-size: 1.2rem; color: var(--ink); background: rgba(30,20,10,.82); border-radius: 4px; padding: 0 3px; }
+.stall:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #8e5f2e; }
+.stall:disabled { filter: grayscale(.55) brightness(.72); cursor: default; }
+.stall.hinted { box-shadow: 0 4px 0 #8e5f2e, 0 0 0 4px var(--gold), 0 0 18px var(--gold); }
+
 /* overlay */
 .overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(10, 8, 20, .72); padding: 20px; }
 .win {
@@ -235,7 +282,7 @@ body.farm { background: var(--sky); }
       <div class="hero">
         <span id="pipHero"></span>
         <h2>Block Quest</h2>
-        <p>Help Pip dig, craft and farm. Every puzzle needs a plan!</p>
+        <p>Help Pip dig, craft, farm, build and trade. Every puzzle needs a plan!</p>
       </div>
       <div class="areas" id="areas"></div>
       <div class="ground"></div>
@@ -364,6 +411,8 @@ body.farm { background: var(--sky); }
     '..yyyyyy..'
   ], { k: '#b7791f', y: '#ffd23f', p: '#f472d0' }, 'trophy');
 
+  const YARD_ICON = px(['....tt....', '..ttttff..', 'ttttffffff', 'bbttffffss', 'bbbbffssss', 'bbbbbsssss', 'bbbbbsssss', '.bbbbssss.', '...bbss...'], { t: '#f4e3b5', f: '#f4e3b5', b: '#5aa6f0', s: '#ff9f43' });
+  const COIN_ICON = px(['..yyyy..', '.yooooy.', 'yoyyyyoy', 'yoyooyoy', 'yoyyyyoy', '.yooooy.', '..yyyy..', '........'], { y: '#ffd23f', o: '#d9a520' });
   // ---------- block textures (drawn at load, 16x16, pixelated) ----------
   function tex(draw) { const c = document.createElement('canvas'); c.width = c.height = 16; draw(c.getContext('2d'), rng(draw.length * 7919 + 17)); return c.toDataURL(); }
   function speck(g, r, base, cols, n) { g.fillStyle = base; g.fillRect(0, 0, 16, 16); for (let i = 0; i < n; i++) { g.fillStyle = cols[i % cols.length]; g.fillRect(Math.floor(r() * 16), Math.floor(r() * 16), r() < .3 ? 2 : 1, 1); } }
@@ -389,15 +438,21 @@ body.farm { background: var(--sky); }
 
   // ---------- saving ----------
   const SAVE_KEY = 'block-quest-v1';
-  let save = { mines: [], hut: [], farm: [] };
-  try { save = Object.assign(save, JSON.parse(localStorage.getItem(SAVE_KEY) || '{}')); } catch (_) {}
+  let save = { mines: [], hut: [], farm: [], yard: [], market: [], minesV: 2 };
+  try {
+    const old = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
+    if (old.minesV !== 2) delete old.mines;   // the mines were rebuilt harder, so start them fresh
+    save = Object.assign(save, old, { minesV: 2 });
+  } catch (_) {}
   const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (_) {} };
 
   // ---------- screens ----------
   const AREAS = {
-    mines: { name: 'Gem Mines', blurb: 'Dig to the gem without running out of pickaxe hits.', count: 10, art: 'stone', icon: GEM, build: buildDig },
+    mines: { name: 'Gem Mines', blurb: 'Collect every gem before your pickaxe runs out. Pick the best order!', count: 10, art: 'stone', icon: GEM, build: buildDig },
     hut: { name: 'Crafting Hut', blurb: 'Work out the recipe and craft the tool.', count: 10, art: 'plank', icon: null, build: buildCraft },
-    farm: { name: 'Farm Fields', blurb: 'Place blocks to send the water to the crops.', count: 8, art: 'farm', icon: CROP_WET, build: buildWater }
+    farm: { name: 'Farm Fields', blurb: 'Place blocks to send the water to the crops.', count: 8, art: 'farm', icon: CROP_WET, build: buildWater },
+    yard: { name: "Builder's Yard", blurb: 'Build it from how it looks from the front, side and top.', count: 10, art: 'stoneBlock', icon: YARD_ICON, build: buildYard },
+    market: { name: 'Village Market', blurb: 'Trade step by step to get what you need. Watch out for traps!', count: 10, art: 'grass', icon: COIN_ICON, build: buildMarket }
   };
   let current = null;   // { area, lv }
   const screens = ['mapScreen', 'levelScreen', 'playScreen'];
@@ -497,7 +552,8 @@ body.farm { background: var(--sky); }
   });
 
   // ======================================================================
-  // 1. GEM MINES: plan the cheapest tunnel. Dirt 1 hit, stone 2, hard rock 3; lava and metal can't be dug.
+  // 1. GEM MINES: collect every gem with a limited pickaxe. Dirt 1 hit, stone 2, hard rock 3;
+  // lava and metal can't be dug. With several gems, the order matters and tunnels can be reused.
   // ======================================================================
   const HITS = { G: 1, D: 1, S: 2, H: 3, E: 0, A: 0 };
   const DIG_TEX = { A: 't-sky', E: 't-tunnel', G: 't-grass', D: 't-dirt', S: 't-stone', H: 't-hard', L: 't-lava', M: 't-metal' };
@@ -523,48 +579,95 @@ body.farm { background: var(--sky); }
     }
     return { dist, prev, id };
   }
+  const perms = a => a.length <= 1 ? [a] : a.flatMap((v, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map(p => [v, ...p]));
+  // Cost of visiting gems in a given order, reusing tunnels already dug on the way.
+  function routeCost(grid, W, H, hits, from, order) {
+    const h = hits.map(r => r.slice());
+    let p = from, cost = 0, firstPath = null;
+    for (const g of order) {
+      const d = dijkstra(grid, W, H, p, h);
+      const c = d.dist[d.id(...g)];
+      if (!isFinite(c)) return { cost: Infinity };
+      cost += c;
+      const cells = []; let v = d.prev[d.id(...g)];
+      while (v >= 0 && v !== d.id(...p)) { cells.push(v); v = d.prev[v]; }
+      cells.push(d.id(...g));
+      if (!firstPath) firstPath = cells;
+      cells.forEach(i => { h[Math.floor(i / W)][i % W] = 0; });
+      p = g;
+    }
+    return { cost, firstPath };
+  }
+  function bestRoute(grid, W, H, hits, from, gems) {
+    let best = { cost: Infinity };
+    for (const order of perms(gems)) { const r = routeCost(grid, W, H, hits, from, order); if (r.cost < best.cost) best = { ...r, order }; }
+    return best;
+  }
   function makeDig(lv) {
-    const W = 8, H = 5 + Math.min(3, Math.floor(lv / 3));
-    const slack = Math.max(1, 4 - Math.floor(lv / 2));
-    for (let seed = 0; seed < 4000; seed++) {
-      const r = rng(1000 + lv * 97 + seed * 13);
-      const stoneP = .22 + lv * .03, hardP = .04 + lv * .035;
+    const W = 8, H = 6 + Math.min(2, Math.floor(lv / 4));
+    const nGems = lv <= 1 ? 1 : lv <= 5 ? 2 : 3;
+    const slack = lv <= 2 ? 2 : lv <= 5 ? 1 : 0;
+    for (let seed = 0; seed < 3000; seed++) {
+      const r = rng(2000 + lv * 131 + seed * 17);
+      const stoneP = .3 + lv * .02, hardP = .12 + lv * .03;
       const grid = [];
       for (let y = 0; y < H; y++) {
         const row = [];
         for (let x = 0; x < W; x++) {
           if (y === 0) row.push('A');
-          else if (y === 1) row.push(r() < .2 + lv * .03 ? 'S' : 'G');
+          else if (y === 1) row.push(r() < .35 ? 'S' : 'G');
           else { const v = r(); row.push(v < hardP ? 'H' : v < hardP + stoneP ? 'S' : 'D'); }
         }
         grid.push(row);
       }
       const put = (t, n) => { for (let i = 0; i < n; i++) { const x = Math.floor(r() * W), y = 2 + Math.floor(r() * (H - 2)); grid[y][x] = t; } };
-      if (lv >= 2) put('L', 1 + Math.floor(lv / 3));
-      if (lv >= 4) put('M', 1 + Math.floor((lv - 4) / 2));
-      put('E', 1 + (r() < .5 ? 1 : 0));
+      put('L', 1 + Math.floor(lv / 2));
+      put('M', Math.floor(lv / 2));
       const start = [Math.floor(r() * W), 0];
-      const gem = [Math.floor(r() * W), H - 1 - (r() < .4 ? 1 : 0)];
-      if (lv >= 2 && Math.abs(gem[0] - start[0]) < 2) continue;
-      grid[gem[1]][gem[0]] = 'E';
-      const d = dijkstra(grid, W, H, start);
-      const opt = d.dist[d.id(...gem)];
-      if (!isFinite(opt) || opt < 3) continue;
-      // straight down then across: if that is already the cheapest, there's nothing to plan
-      let naive = 0;
-      for (let y = 1; y <= gem[1]; y++) { const t = grid[y][start[0]]; naive += passable(t) ? HITS[t] : Infinity; }
-      const dir = Math.sign(gem[0] - start[0]);
-      for (let x = start[0] + dir; dir && x !== gem[0] + dir; x += dir) { const t = grid[gem[1]][x]; naive += passable(t) ? HITS[t] : Infinity; }
-      if (lv >= 1 && naive < opt + (lv >= 4 ? 3 : 2)) continue;
-      return { W, H, grid, start, gem, opt, energy: opt + slack };
+      const gems = [];
+      for (let tries = 0; gems.length < nGems && tries < 50; tries++) {
+        const g = [Math.floor(r() * W), 2 + Math.floor(r() * (H - 2))];
+        if (gems.some(o => Math.abs(o[0] - g[0]) + Math.abs(o[1] - g[1]) < 3)) continue;
+        if (Math.abs(g[0] - start[0]) + g[1] < 4) continue;
+        gems.push(g);
+      }
+      if (gems.length < nGems) continue;
+      gems.forEach(([x, y]) => grid[y][x] = 'E');
+      const hits = grid.map(row => row.map(t => HITS[t] ?? 0));
+      const best = bestRoute(grid, W, H, hits, start, gems);
+      if (!isFinite(best.cost) || best.cost < 4 + lv) continue;
+      if (nGems === 1) {
+        // straight down then across must not already be the cheapest
+        const g = gems[0];
+        let naive = 0;
+        for (let y = 1; y <= g[1]; y++) { const t = grid[y][start[0]]; naive += passable(t) ? HITS[t] : Infinity; }
+        const dir = Math.sign(g[0] - start[0]);
+        for (let x = start[0] + dir; dir && x !== g[0] + dir; x += dir) { const t = grid[g[1]][x]; naive += passable(t) ? HITS[t] : Infinity; }
+        if (naive < best.cost + 3) continue;
+      } else {
+        // the order must matter, and grabbing the nearest gem first must not be the best plan
+        const costs = perms(gems).map(o => routeCost(grid, W, H, hits, start, o).cost).filter(isFinite);
+        if (Math.max(...costs) - best.cost < 3) continue;
+        let p = start, h = hits.map(r => r.slice()), greedy = 0, left = gems.slice();
+        while (left.length) {
+          const d = dijkstra(grid, W, H, p, h);
+          left.sort((a, b) => d.dist[d.id(...a)] - d.dist[d.id(...b)]);
+          const r2 = routeCost(grid, W, H, h, p, [left[0]]);
+          if (!isFinite(r2.cost)) { greedy = Infinity; break; }
+          greedy += r2.cost; r2.firstPath.forEach(i => h[Math.floor(i / W)][i % W] = 0);
+          p = left.shift();
+        }
+        if (lv >= 4 && greedy <= best.cost && seed < 2500) continue;
+      }
+      return { W, H, grid, start, gems, target: best.cost, energy: best.cost + slack, slack };
     }
     throw new Error('no dig level ' + lv);
   }
 
   function buildDig(lv) {
     const L = makeDig(lv);
-    const { W, H, gem, opt } = L;
-    let grid, hits, pos, energy, used, hinted, path, busy;
+    const { W, H, target } = L;
+    let grid, hits, pos, energy, used, hinted, path, busy, left;
     const board = el('div', 'board');
     board.style.setProperty('--cols', W); board.style.setProperty('--rows', H);
     $('stage').appendChild(board);
@@ -574,11 +677,14 @@ body.farm { background: var(--sky); }
       c.addEventListener('click', () => tap(x, y));
       board.appendChild(c); cells.push(c);
     }
-    const energyChip = el('div', 'chip'); const goalChip = el('div', 'chip');
-    $('status').append(energyChip, goalChip);
-    setQ(lv === 0 ? 'Dig down to the gem!' : 'Find the cheapest way to the gem!',
-      lv === 0 ? 'Tap the blocks next to Pip to dig down to the pink gem. Dirt takes 1 hit. Stone takes 2 hits. Count your pickaxe hits!'
-        : 'Plan before you dig! Dirt takes 1 hit, grey stone takes 2, dark rock takes 3. Lava and metal can not be dug. Find the path that uses the fewest hits.');
+    const energyChip = el('div', 'chip'), gemChip = el('div', 'chip');
+    $('status').append(energyChip, gemChip);
+    const many = L.gems.length > 1;
+    const exact = L.slack === 0;
+    setQ(many ? 'Collect all ' + L.gems.length + ' gems!' : lv === 0 ? 'Dig down to the gem!' : 'Find the cheapest way to the gem!',
+      (many ? 'Collect all ' + L.gems.length + ' gems. Think about which gem to get first, because tunnels you have already dug are free to walk back through. ' : 'Dig to the pink gem. ')
+      + 'Dirt takes 1 hit, grey stone takes 2, dark rock takes 3. Lava and metal can not be dug.'
+      + (exact ? ' You only have exactly enough hits for the best plan, so plan before you dig!' : ''));
     action('Start again', reset, 'alt');
     action('Hint', hint);
 
@@ -586,23 +692,25 @@ body.farm { background: var(--sky); }
       grid = L.grid.map(r => r.slice());
       hits = grid.map(r => r.map(t => HITS[t] ?? 0));
       pos = L.start.slice(); energy = L.energy; used = 0; hinted = false; path = null; busy = false;
-      msg('', false); draw();
+      left = L.gems.map(g => g.slice());
+      msg(exact ? 'You have exactly enough hits. Plan first!' : '', false); draw();
     }
+    const isGem = (x, y) => left.some(g => g[0] === x && g[1] === y);
     function draw() {
       cells.forEach((c, i) => {
         const x = i % W, y = Math.floor(i / W), t = grid[y][x];
         c.className = 'cell ' + DIG_TEX[t] + (t !== 'A' && t !== 'E' && passable(t) && hits[y][x] < HITS[t] ? ' crack' : '') + (path && path.has(i) ? ' dot' : '');
         let inner = '';
         if (x === pos[0] && y === pos[1]) inner = PIP;
-        else if (x === gem[0] && y === gem[1]) inner = GEM;
+        else if (isGem(x, y)) inner = GEM;
         if (passable(t) && hits[y][x] > 0) inner += `<span class="pips">${'<i></i>'.repeat(hits[y][x])}</span>`;
         c.innerHTML = inner;
         const name = { A: 'sky', E: 'tunnel', G: 'grass', D: 'dirt', S: 'stone', H: 'hard rock', L: 'lava', M: 'metal' }[t];
-        c.setAttribute('aria-label', (x === pos[0] && y === pos[1]) ? 'Pip' : (x === gem[0] && y === gem[1]) ? 'gem' : name + (hits[y][x] ? ', ' + hits[y][x] + ' hits' : ''));
+        c.setAttribute('aria-label', (x === pos[0] && y === pos[1]) ? 'Pip' : isGem(x, y) ? 'gem' : name + (hits[y][x] ? ', ' + hits[y][x] + ' hits' : ''));
       });
       energyChip.innerHTML = PICK_ICON + `<span>${energy} hits left</span>`;
       energyChip.classList.toggle('low', energy <= 2);
-      goalChip.innerHTML = GEM + `<span>Best: ${opt} hits</span>`;
+      gemChip.innerHTML = GEM + `<span>${L.gems.length - left.length} of ${L.gems.length}</span>`;
     }
     function tap(x, y) {
       if (busy) return;
@@ -622,32 +730,36 @@ body.farm { background: var(--sky); }
         else { draw(); checkStuck(); return; }
       }
       pos = [x, y]; beep(440, .04, 'sine', .05);
+      if (isGem(x, y)) {
+        left = left.filter(g => !(g[0] === x && g[1] === y));
+        tune([988, 1319], 80, 'sine');
+      }
       msg('', false); draw();
-      if (x === gem[0] && y === gem[1]) {
+      if (!left.length) {
         busy = true;
-        const stars = hinted ? Math.min(2, used <= opt ? 3 : used <= opt + 2 ? 2 : 1) : used <= opt ? 3 : used <= opt + 2 ? 2 : 1;
-        setTimeout(() => win(stars, used <= opt ? 'You found the best path: only ' + used + ' hits!' : 'You used ' + used + ' hits. The best path uses ' + opt + '.'), 350);
+        let stars = used <= target ? 3 : used <= target + 2 ? 2 : 1;
+        if (hinted) stars = Math.min(2, stars);
+        setTimeout(() => win(stars, used < target ? 'Wow, only ' + used + ' hits! That beats our best plan of ' + target + '!'
+          : used === target ? 'Only ' + used + ' hits. A perfect plan!' : 'You used ' + used + ' hits. The best plan uses ' + target + '.'), 350);
         return;
       }
       checkStuck();
     }
     function checkStuck() {
-      if (energy > 0) return;
-      const d = dijkstra(grid, W, H, pos, hits);
-      if (d.dist[d.id(...gem)] > 0) {
+      const plan = bestRoute(grid, W, H, hits, pos, left);
+      if (plan.cost > energy) {
         busy = true;
-        msg('Out of pickaxe hits! Look for a path with fewer hard blocks, then try again.');
+        msg('Not enough pickaxe hits left to reach every gem! Think about a cheaper order or path, then try again.');
         beep(160, .3, 'sawtooth', .05);
-        setTimeout(reset, 2600);
+        setTimeout(reset, 3200);
       }
     }
     function hint() {
-      const d = dijkstra(grid, W, H, pos, hits);
-      const s = new Set(); let v = d.prev[d.id(...gem)];
-      while (v >= 0 && v !== d.id(...pos)) { s.add(v); v = d.prev[v]; }
-      if (!isFinite(d.dist[d.id(...gem)]) || d.dist[d.id(...gem)] > energy) { msg('That path costs too much now. Tap Start again.'); return; }
-      path = s; hinted = true; draw();
-      msg('Follow the yellow dots. Hints make the most stars 2.');
+      if (busy) return;
+      const plan = bestRoute(grid, W, H, hits, pos, left);
+      if (!isFinite(plan.cost) || plan.cost > energy) { msg('There\'s no way to finish from here. Tap Start again.'); return; }
+      path = new Set(plan.firstPath); hinted = true; draw();
+      msg('Follow the yellow dots to the next gem. Hints make the most stars 2.');
     }
     const onKey = e => {
       const m = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
@@ -945,11 +1057,323 @@ body.farm { background: var(--sky); }
     draw();
   }
 
+  // ======================================================================
+  // 4. BUILDER'S YARD: build a block structure from how it looks from the front, side and top.
+  // Front faces are blue, side faces are orange, so the 3D picture and the views match up.
+  // ======================================================================
+  const FACE = { top: '#f4e3b5', front: '#5aa6f0', side: '#ff9f43', edge: '#1e1a2e' };
+  function viewsOf(h) {
+    const N = h.length;
+    const front = Array.from({ length: N }, (_, x) => Math.max(...h.map(row => row[x])));
+    const side = h.map(row => Math.max(...row));
+    const top = h.map(row => row.map(v => v > 0));
+    return { front, side, top };
+  }
+  const sum = a => a.reduce((s, v) => s + v, 0);
+  const blockCount = h => sum(h.map(sum));
+  // fewest blocks that still match the front and side (and top, if given)
+  function fewestBlocks(N, maxH, v, useTop) {
+    if (!useTop) {
+      let m = sum(v.front) + sum(v.side);
+      for (let k = 1; k <= maxH; k++) m -= k * Math.min(v.front.filter(f => f === k).length, v.side.filter(s => s === k).length);
+      return m;
+    }
+    // small grids only: try every build
+    const cells = N * N; let best = Infinity;
+    const hh = Array.from({ length: N }, () => Array(N).fill(0));
+    const rec = (i, s) => {
+      if (s >= best) return;
+      if (i === cells) { const w = viewsOf(hh); if (same(w, v, true, true, true)) best = s; return; }
+      const x = i % N, y = Math.floor(i / N);
+      const lim = v.top[y][x] ? Math.min(v.front[x], v.side[y]) : 0;
+      for (let k = v.top[y][x] ? 1 : 0; k <= lim; k++) { hh[y][x] = k; rec(i + 1, s + k); }
+      hh[y][x] = 0;
+    };
+    rec(0, 0);
+    return best;
+  }
+  const mostBlocks = (N, v) => { let m = 0; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (v.top[y][x]) m += Math.min(v.front[x], v.side[y]); return m; };
+  function same(a, b, f, s, t) {
+    if (f && a.front.join() !== b.front.join()) return false;
+    if (s && a.side.join() !== b.side.join()) return false;
+    if (t && a.top.flat().join() !== b.top.flat().join()) return false;
+    return true;
+  }
+  function makeBlueprint(lv) {
+    const r = rng(9000 + lv * 41);
+    const N = lv === 0 ? 2 : lv >= 8 ? 4 : 3;
+    const maxH = lv <= 2 ? 2 : 3;
+    const mode = lv <= 1 ? 'picture' : lv === 2 ? 'fronttop' : lv === 6 ? 'fewest' : lv === 7 ? 'fewest2' : lv === 9 ? 'most' : 'three';
+    for (let seed = 0; seed < 2000; seed++) {
+      const h = Array.from({ length: N }, () => Array.from({ length: N }, () => r() < .28 ? 0 : 1 + Math.floor(r() * maxH)));
+      const v = viewsOf(h);
+      const n = blockCount(h);
+      if (n < N + 1 || !h.flat().some(x => x >= 2)) continue;
+      if (new Set(v.front).size < 2 || new Set(v.side).size < 2) continue;
+      if (v.front.includes(0) || v.side.includes(0)) continue;
+      const level = { N, maxH, h, v, mode };
+      if (mode === 'fewest') { level.goal = fewestBlocks(N, maxH, v, true); if (level.goal >= n) continue; }
+      if (mode === 'fewest2') { level.goal = fewestBlocks(N, maxH, v, false); if (level.goal >= n - 1) continue; }
+      if (mode === 'most') { level.goal = mostBlocks(N, v); if (level.goal <= n) continue; }
+      return level;
+    }
+    throw new Error('no blueprint ' + lv);
+  }
+
+  function drawIso(canvas, h, N, maxH, labels) {
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const Wc = canvas.clientWidth || 180, Hc = canvas.clientHeight || 160;
+    canvas.width = Wc * dpr; canvas.height = Hc * dpr;
+    const g = canvas.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, Wc, Hc);
+    const pad = labels ? 22 : 8;
+    const s = Math.min((Wc - pad * 2) / (2 * N), (Hc - pad * 2) / (N + maxH * 1.1 + .2));
+    const a = s, b = s / 2, c = s * 1.1;
+    const ox = Wc / 2, oy = pad + maxH * c + (Hc - pad * 2 - (N * s + maxH * c)) / 2;
+    const P = (x, y, z) => [ox + (x - y) * a, oy + (x + y) * b - z * c];
+    const poly = (pts, fill) => { g.beginPath(); pts.forEach(([X, Y], i) => i ? g.lineTo(X, Y) : g.moveTo(X, Y)); g.closePath(); g.fillStyle = fill; g.fill(); g.lineWidth = 1.5; g.strokeStyle = FACE.edge; g.stroke(); };
+    // ground
+    poly([P(0, 0, 0), P(N, 0, 0), P(N, N, 0), P(0, N, 0)], 'rgba(95,179,74,.55)');
+    for (let d = 0; d <= 2 * N - 2; d++) for (let x = 0; x < N; x++) {
+      const y = d - x; if (y < 0 || y >= N) continue;
+      for (let z = 0; z < h[y][x]; z++) {
+        poly([P(x, y + 1, z), P(x + 1, y + 1, z), P(x + 1, y + 1, z + 1), P(x, y + 1, z + 1)], FACE.front);
+        poly([P(x + 1, y, z), P(x + 1, y + 1, z), P(x + 1, y + 1, z + 1), P(x + 1, y, z + 1)], FACE.side);
+        poly([P(x, y, z + 1), P(x + 1, y, z + 1), P(x + 1, y + 1, z + 1), P(x, y + 1, z + 1)], FACE.top);
+      }
+    }
+    if (labels) {
+      g.font = '800 12px "Baloo 2", sans-serif'; g.textAlign = 'center';
+      const [fx, fy] = P(N / 2, N, 0), [sx, sy] = P(N, N / 2, 0);
+      g.fillStyle = FACE.front; g.fillText('FRONT', fx - 16, fy + 16);
+      g.fillStyle = FACE.side; g.fillText('SIDE', sx + 16, sy + 16);
+    }
+  }
+  // A flat view: columns of blocks (front/side) or a map of squares (top)
+  function viewPanel(kind, v, N, maxH) {
+    const wrap = el('div', 'view ' + kind);
+    const label = { front: 'Front', side: 'Side', top: 'Top' }[kind];
+    const g = el('div', 'vgrid');
+    if (kind === 'top') {
+      g.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) g.appendChild(el('i', v.top[y][x] ? 'on' : ''));
+    } else {
+      // side view: looking at the orange faces, the front of the build is on the left
+      const cols = kind === 'front' ? v.front : v.side.slice().reverse();
+      g.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+      for (let z = maxH - 1; z >= 0; z--) for (let i = 0; i < N; i++) g.appendChild(el('i', cols[i] > z ? 'on' : ''));
+    }
+    wrap.append(g, el('span', '', label));
+    wrap.setAttribute('aria-label', label + ' view');
+    return wrap;
+  }
+
+  function buildYard(lv) {
+    const B = makeBlueprint(lv);
+    const { N, maxH, v, mode } = B;
+    let h = Array.from({ length: N }, () => Array(N).fill(0)), tries = 0, done = false;
+    const shown = { picture: [], fronttop: ['front', 'top'], three: ['front', 'side', 'top'], fewest: ['front', 'side', 'top'], fewest2: ['front', 'side'], most: ['front', 'side', 'top'] }[mode];
+    const check = { front: shown.includes('front') || mode === 'picture', side: shown.includes('side') || mode === 'picture', top: shown.includes('top') || mode === 'picture' };
+    const Q = {
+      picture: ['Build this!', 'Copy the picture. Tap a square to stack a block on it. Tap again to stack more.'],
+      fronttop: ['Build it from two views!', 'Look at the build from the front and from the top. Tap the squares to stack blocks so yours looks the same.'],
+      three: ['Build it from three views!', 'The blue view is from the front, the orange view is from the side, and the last one is from the top. Build something that looks the same from all three.'],
+      fewest: ['Match the views with the fewest blocks!', 'Build something that looks the same from the front, the side and the top, using as few blocks as you can. Only ' + B.goal + ' blocks are needed!'],
+      fewest2: ['Front and side only. Fewest blocks!', 'This time you only see the front and the side. Match them using the fewest blocks. It can be done with ' + B.goal + ' blocks.'],
+      most: ['Match the views with the most blocks!', 'Build something that matches all three views, using as many blocks as possible. Can you fit ' + B.goal + ' blocks?']
+    }[mode];
+    setQ(...Q);
+
+    const targetRow = el('div', 'views');
+    if (mode === 'picture') {
+      const cv = el('canvas', 'iso target'); targetRow.appendChild(cv);
+      requestAnimationFrame(() => drawIso(cv, B.h, N, maxH, false));
+    } else shown.forEach(k => targetRow.appendChild(viewPanel(k, v, N, maxH)));
+    $('stage').appendChild(targetRow);
+
+    const work = el('div', 'work');
+    const preview = el('canvas', 'iso');
+    const pad = el('div', 'hgrid');
+    pad.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+    const btns = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const b = el('button', 'hcell'); b.type = 'button';
+      b.addEventListener('click', () => { if (done) return; h[y][x] = (h[y][x] + 1) % (maxH + 1); beep(330 + h[y][x] * 110, .06, 'square', .06); draw(); });
+      pad.appendChild(b); btns.push(b);
+    }
+    const padWrap = el('div', 'padwrap');
+    padWrap.append(pad, el('span', 'frontbar', 'FRONT'), el('span', 'sidebar', 'SIDE'));
+    work.append(preview, padWrap);
+    $('stage').appendChild(work);
+    const countChip = el('div', 'chip');
+    $('status').appendChild(countChip);
+
+    function draw(bad) {
+      btns.forEach((b, i) => {
+        const x = i % N, y = Math.floor(i / N), k = h[y][x];
+        b.textContent = k || '';
+        b.className = 'hcell h' + k;
+        b.setAttribute('aria-label', 'Row ' + (y + 1) + ', column ' + (x + 1) + ': ' + k + (k === 1 ? ' block' : ' blocks'));
+      });
+      drawIso(preview, h, N, maxH, true);
+      const n = blockCount(h);
+      countChip.textContent = n + (n === 1 ? ' block' : ' blocks') + (mode === 'fewest' || mode === 'fewest2' ? ' · goal: ' + B.goal : mode === 'most' ? ' · goal: ' + B.goal : '');
+      targetRow.querySelectorAll('.view').forEach(p => p.classList.toggle('bad', !!(bad && bad.has(p.classList[1]))));
+    }
+    action('Clear', () => { if (done) return; h = h.map(r => r.map(() => 0)); draw(); msg('', false); }, 'alt');
+    action('Check', () => {
+      if (done) return;
+      const w = viewsOf(h);
+      const bad = new Set();
+      if (check.front && w.front.join() !== v.front.join()) bad.add('front');
+      if (check.side && w.side.join() !== v.side.join()) bad.add('side');
+      if (check.top && w.top.flat().join() !== v.top.flat().join()) bad.add('top');
+      const n = blockCount(h);
+      if (!bad.size) {
+        if ((mode === 'fewest' || mode === 'fewest2') && n > B.goal) { tries++; msg('It matches! But it can be done with only ' + B.goal + ' blocks. Which blocks are hidden from every view?'); beep(200, .2); return; }
+        if (mode === 'most' && n < B.goal) { tries++; msg('It matches! But you can fit ' + B.goal + ' blocks. Where could more blocks hide?'); beep(200, .2); return; }
+        done = true;
+        setTimeout(() => win(tries === 0 ? 3 : tries === 1 ? 2 : 1, mode === 'fewest' || mode === 'fewest2' ? 'Only ' + n + ' blocks!' : 'It matches from every side!'), 300);
+        return;
+      }
+      tries++;
+      beep(160, .25, 'sawtooth', .05);
+      const names = [...bad].map(k => ({ front: 'front', side: 'side', top: 'top' }[k]));
+      let m = mode === 'picture' ? 'Not quite. Compare your build with the picture, one block at a time.' : 'Not yet! It doesn\'t match from the ' + names.join(' or the ') + '.';
+      if (mode !== 'picture' && tries >= 2) m += bad.has('front') ? ' Blue view: each column shows the tallest stack in that column.' : bad.has('side') ? ' Orange view: the front of your build is on the left.' : ' Top view: every coloured square needs at least one block.';
+      msg(m);
+      draw(bad);
+    });
+    const onResize = () => draw();
+    addEventListener('resize', onResize);
+    cleanup = () => removeEventListener('resize', onResize);
+    requestAnimationFrame(() => draw());
+  }
+
+  // ======================================================================
+  // 5. VILLAGE MARKET: chain trades to get the goal. Some trades are traps that leave you stuck.
+  // Every level was checked with a solver: the fewest trades is shown as the target.
+  // ======================================================================
+  const ITEM = {
+    wheat: px(['....y...', '..y.y.y.', '...yyy..', '..y.y.y.', '...yyy..', '....g...', '....g...', '....g...'], { y: '#e8c050', g: '#6a9a3a' }),
+    carrot: px(['....gg..', '...g.g..', '...oo...', '..ooo...', '..oo....', '.oo.....', '.o......', '........'], { g: '#5fb34a', o: '#ff8a2a' }),
+    fish: px(['........', '.....bb.', 'b..bbbbb', 'bbbbbkbb', 'b..bbbbb', '.....bb.', '........', '........'], { b: '#6fa8dc', k: '#1e1a2e' }),
+    egg: px(['...ww...', '..wwww..', '.wwwwww.', '.wwwwsw.', '.wwwwsw.', '..wsss..', '........', '........'], { w: '#fff2d8', s: '#e0c9a0' }),
+    wool: px(['........', '.ww.ww..', 'wwgwwwww', 'wwwwwgww', '.wgwwww.', '..k..k..', '........', '........'], { w: '#f2f2f2', g: '#c9c9d4', k: '#3b3e4f' }),
+    coin: px(['..yyyy..', '.yooooy.', 'yoyyyyoy', 'yoyooyoy', 'yoyyyyoy', '.yooooy.', '..yyyy..', '........'], { y: '#ffd23f', o: '#d9a520' }),
+    gem: GEM,
+    lantern: px(['...kk...', '..kkkk..', '.kyyyyk.', '.kyooyk.', '.kyooyk.', '.kyyyyk.', '..kkkk..', '........'], { k: '#3b3e4f', y: '#ffe9a0', o: '#ff9f1c' }),
+    boots: px(['........', '.bb.....', '.bb.....', '.bb..bb.', '.bbb.bb.', 'bbbb.bbb', 'ssss.sss', '........'], { b: '#9c6b36', s: '#3b2a1a' }),
+    cake: px(['...r....', '..wwww..', '.wwwwww.', 'pppppppp', 'cccccccc', 'pppppppp', 'cccccccc', '........'], { r: '#ff5d73', w: '#fff2d8', p: '#f9a8d4', c: '#c08a4e' }),
+    map: px(['yyyyyyyy', 'y..r...y', 'y.r.r..y', 'y...r..y', 'y.gg..xy', 'y.gg...y', 'yyyyyyyy', '........'], { y: '#e8d8a8', r: '#c0392b', g: '#5fb34a', x: '#c0392b' })
+  };
+  const MARKET = [
+    { start: { wheat: 4 }, goal: { lantern: 1 }, trades: [[{ wheat: 2 }, { coin: 1 }], [{ coin: 2 }, { lantern: 1 }]] },
+    { start: { carrot: 3, wheat: 2 }, goal: { boots: 1 }, trades: [[{ carrot: 3 }, { coin: 1 }], [{ wheat: 2 }, { coin: 1 }], [{ coin: 2 }, { boots: 1 }]] },
+    { start: { wheat: 6 }, goal: { lantern: 1 }, trades: [[{ wheat: 2 }, { fish: 1 }], [{ wheat: 3 }, { coin: 1 }], [{ coin: 1 }, { carrot: 2 }], [{ fish: 1, coin: 1 }, { lantern: 1 }]] },
+    { start: { wheat: 5 }, goal: { boots: 1 }, trades: [[{ wheat: 2 }, { coin: 1 }], [{ wheat: 3 }, { fish: 1 }], [{ fish: 1 }, { coin: 2 }], [{ coin: 3 }, { boots: 1 }]] },
+    { start: { fish: 1, carrot: 2 }, goal: { cake: 1 }, trades: [[{ fish: 1 }, { wheat: 3 }], [{ carrot: 2 }, { egg: 1 }], [{ wheat: 3 }, { coin: 1 }], [{ egg: 1, wheat: 3 }, { cake: 1 }]] },
+    { start: { wheat: 5, fish: 1 }, goal: { map: 1 }, trades: [[{ wheat: 2 }, { coin: 1 }], [{ fish: 1 }, { egg: 2 }], [{ egg: 2 }, { coin: 1 }], [{ coin: 1, wheat: 1 }, { gem: 1 }], [{ coin: 1 }, { carrot: 2 }], [{ coin: 2, gem: 1 }, { map: 1 }]] },
+    { start: { wheat: 6, wool: 2 }, goal: { lantern: 1, boots: 1 }, trades: [[{ wheat: 3 }, { coin: 1 }], [{ wool: 1 }, { coin: 1 }], [{ wheat: 2 }, { fish: 1 }], [{ fish: 1, coin: 1 }, { lantern: 1 }], [{ coin: 2 }, { boots: 1 }], [{ wool: 2 }, { egg: 1 }]] },
+    { start: { carrot: 6, egg: 1 }, goal: { cake: 1 }, trades: [[{ carrot: 2 }, { wheat: 1 }], [{ carrot: 3 }, { coin: 1 }], [{ coin: 1 }, { wheat: 2 }], [{ egg: 1, wheat: 1 }, { gem: 1 }], [{ wheat: 2 }, { egg: 1 }], [{ gem: 1, egg: 1, wheat: 1 }, { cake: 1 }]] },
+    { start: { fish: 3, wheat: 4 }, goal: { map: 1, lantern: 1 }, trades: [[{ fish: 1 }, { coin: 1 }], [{ wheat: 2 }, { coin: 1 }], [{ coin: 2 }, { gem: 1 }], [{ gem: 1, fish: 1 }, { map: 1 }], [{ coin: 1, wheat: 1 }, { lantern: 1 }], [{ fish: 2 }, { wool: 1 }], [{ wool: 1 }, { coin: 1 }]] },
+    { start: { wool: 3, carrot: 5 }, goal: { boots: 1, cake: 1 }, trades: [[{ wool: 1 }, { coin: 1 }], [{ carrot: 2 }, { egg: 1 }], [{ coin: 1, carrot: 1 }, { wheat: 2 }], [{ egg: 1, wheat: 2 }, { cake: 1 }], [{ coin: 2, egg: 1 }, { boots: 1 }], [{ wool: 2 }, { gem: 1 }], [{ gem: 1 }, { coin: 1 }], [{ carrot: 1 }, { wheat: 1 }]] }
+  ];
+  const invKey = inv => Object.keys(inv).sort().filter(k => inv[k] > 0).map(k => k + inv[k]).join(',');
+  const canTrade = (inv, t) => Object.entries(t[0]).every(([k, n]) => (inv[k] || 0) >= n);
+  const doTrade = (inv, t) => { const o = { ...inv }; for (const [k, n] of Object.entries(t[0])) o[k] -= n; for (const [k, n] of Object.entries(t[1])) o[k] = (o[k] || 0) + n; return o; };
+  const hasGoal = (inv, goal) => Object.entries(goal).every(([k, n]) => (inv[k] || 0) >= n);
+  // fewest trades from this backpack to the goal (null if it can't be done any more)
+  function marketPlan(level, inv) {
+    const seen = new Map([[invKey(inv), null]]), q = [[inv, invKey(inv)]];
+    while (q.length) {
+      const [s, k] = q.shift();
+      if (hasGoal(s, level.goal)) {
+        const path = []; let kk = k;
+        while (seen.get(kk)) { const [pk, i] = seen.get(kk); path.unshift(i); kk = pk; }
+        return path;
+      }
+      level.trades.forEach((t, i) => {
+        if (!canTrade(s, t)) return;
+        const n = doTrade(s, t);
+        if (Object.values(n).some(v => v > 14)) return;
+        const nk = invKey(n);
+        if (!seen.has(nk)) { seen.set(nk, [k, i]); q.push([n, nk]); }
+      });
+      if (seen.size > 5000) return null;
+    }
+    return null;
+  }
+  const itemsHtml = obj => Object.entries(obj).map(([k, n]) => `<span class="it">${n > 1 ? '<b>' + n + '</b>' : ''}${ITEM[k]}</span>`).join('<span class="plus">+</span>');
+  const itemsText = obj => Object.entries(obj).map(([k, n]) => n + ' ' + k).join(' and ');
+
+  function buildMarket(lv) {
+    const level = MARKET[lv];
+    const best = marketPlan(level, level.start).length;
+    let inv, trades, hinted, done, hintIdx = -1;
+    const goalNames = Object.keys(level.goal);
+    const NAMED = { boots: 'boots', cake: 'a cake', lantern: 'a lantern', map: 'a map' };
+    setQ('Trade your way to ' + goalNames.map(g => NAMED[g] || g).join(' and ') + '!',
+      'You have ' + itemsText(level.start) + '. Use the market stalls to trade for ' + itemsText(level.goal) + '. Be careful: some trades are traps! Plan before you trade. The best plan uses ' + best + ' trades.');
+    const goalBox = el('div', 'goalbox');
+    const pack = el('div', 'pack');
+    const stalls = el('div', 'stalls');
+    $('stage').append(goalBox, pack, stalls);
+    const tradeChip = el('div', 'chip');
+    $('status').appendChild(tradeChip);
+    const stallBtns = level.trades.map((t, i) => {
+      const b = el('button', 'stall'); b.type = 'button';
+      b.innerHTML = `<span class="give">${itemsHtml(t[0])}</span><span class="arr">&#8594;</span><span class="get">${itemsHtml(t[1])}</span>`;
+      b.setAttribute('aria-label', 'Trade ' + itemsText(t[0]) + ' for ' + itemsText(t[1]));
+      b.addEventListener('click', () => trade(i));
+      stalls.appendChild(b); return b;
+    });
+    action('Start again', reset, 'alt');
+    action('Hint', hint);
+
+    function reset() { inv = { ...level.start }; trades = 0; hinted = false; done = false; hintIdx = -1; msg('', false); draw(); }
+    function draw() {
+      goalBox.innerHTML = '<span class="lbl">Goal</span>' + Object.entries(level.goal).map(([k, n]) => `<span class="it${(inv[k] || 0) >= n ? ' got' : ''}">${ITEM[k]}</span>`).join('');
+      const items = Object.entries(inv).filter(([, n]) => n > 0);
+      pack.innerHTML = '<span class="lbl">Backpack</span>' + (items.length ? items.map(([k, n]) => `<span class="it"><b>${n}</b>${ITEM[k]}</span>`).join('') : '<span class="empty">empty</span>');
+      stallBtns.forEach((b, i) => {
+        b.disabled = done || !canTrade(inv, level.trades[i]);
+        b.classList.toggle('hinted', i === hintIdx);
+      });
+      tradeChip.textContent = trades + (trades === 1 ? ' trade' : ' trades') + ' · best: ' + best;
+    }
+    function trade(i) {
+      const t = level.trades[i];
+      if (done || !canTrade(inv, t)) return;
+      inv = doTrade(inv, t); trades++; hintIdx = -1;
+      beep(523, .06, 'triangle', .1); setTimeout(() => beep(784, .08, 'triangle', .1), 70);
+      draw();
+      if (hasGoal(inv, level.goal)) {
+        done = true; draw();
+        let stars = trades <= best ? 3 : trades <= best + 2 ? 2 : 1;
+        if (hinted) stars = Math.min(2, stars);
+        setTimeout(() => win(stars, trades <= best ? 'Only ' + trades + ' trades. A perfect plan!' : 'You did it in ' + trades + ' trades. The best plan uses ' + best + '.'), 350);
+        return;
+      }
+      if (!marketPlan(level, inv)) {
+        msg('Uh oh! There\'s no way to get ' + goalNames.map(g => NAMED[g] || g).join(' and ') + ' now. Tap Start again, and plan which trades you really need.');
+        beep(160, .3, 'sawtooth', .05);
+      } else msg('', false);
+    }
+    function hint() {
+      if (done) return;
+      const plan = marketPlan(level, inv);
+      if (!plan) { msg('You\'re stuck now. Tap Start again.'); return; }
+      hinted = true; hintIdx = plan[0]; draw();
+      msg('Try the glowing trade next. Tip: start from the goal and work backwards! Hints make the most stars 2.');
+    }
+    reset();
+  }
+
   // ---------- go ----------
   showMap();
   if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}));
   // used by the automated level checks
-  window.__bq = { makeDig, makeCraft, WATER_LEVELS, waterSim, waterSolutions, recipeOf, dijkstra, startLevel, AREAS };
+  window.__bq = { makeDig, makeCraft, WATER_LEVELS, waterSim, waterSolutions, recipeOf, dijkstra, bestRoute, HITS, startLevel, AREAS, makeBlueprint, viewsOf, MARKET, marketPlan };
 })();
 </script>
 </body>
