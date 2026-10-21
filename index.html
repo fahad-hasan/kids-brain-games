@@ -35,6 +35,7 @@
   :root { --bg: #0b1033; --card: #161f55; --ink: #fdf6e3; --muted: #aab3e0; --line: #2b3780; color-scheme: dark; }
 }
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   background: var(--bg); color: var(--ink);
@@ -100,6 +101,54 @@ main {
   font-weight: 800; font-size: 1.25rem; padding: 6px 26px; border-radius: 999px;
 }
 .empty { color: var(--muted); }
+
+/* who's playing */
+.who { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.who .lab { font-size: .85rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .85; width: 100%; }
+.player {
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-weight: 800; font-size: 1.05rem; color: var(--band-ink);
+  background: rgba(255,255,255,.12); border: 3px solid transparent;
+}
+.player svg { width: 34px; height: 34px; border-radius: 8px; background: rgba(0,0,0,.25); padding: 3px; }
+.player[aria-pressed="true"] { background: var(--band-ink); color: var(--band); border-color: var(--yellow); }
+.player.add { padding: 6px 16px; border: 3px dashed rgba(255,255,255,.5); background: transparent; }
+.player:focus-visible, .iconbtn:focus-visible, .dlg button:focus-visible, .dlg input:focus-visible { outline: 4px solid var(--yellow); outline-offset: 2px; }
+.iconbtn { font: inherit; font-weight: 800; color: var(--band-ink); background: none; border: none; text-decoration: underline; cursor: pointer; padding: 4px; }
+
+/* per-player stats on cards */
+.mystats { margin: 0; font-weight: 800; font-size: .95rem; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+.mystats svg { width: 20px; height: 20px; flex: none; }
+.mystats.none { color: var(--muted); font-weight: 600; }
+
+/* scoreboard */
+.scores { margin-top: 34px; }
+.tablewrap { overflow-x: auto; background: var(--card); border: 3px solid var(--line); border-radius: 18px; }
+table { border-collapse: collapse; width: 100%; min-width: 420px; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 8px; text-align: right; border-bottom: 2px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+tbody tr:last-child td { border-bottom: none; }
+td .pl { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; }
+td .pl svg { width: 28px; height: 28px; }
+tr.me td { background: color-mix(in srgb, var(--yellow) 18%, transparent); }
+td.top { color: #c2410c; font-weight: 800; }
+
+/* add / edit player dialog */
+.scrim { position: fixed; inset: 0; z-index: 50; background: rgba(10, 12, 40, .6); display: grid; place-items: center; padding: 16px; }
+.dlg { width: min(420px, 100%); background: var(--card); color: var(--ink); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 0 rgba(0,0,0,.25); }
+.dlg h2 { margin: 0; font-size: 1.6rem; line-height: 1.1; }
+.dlg label { font-weight: 800; font-size: .9rem; color: var(--muted); }
+.dlg input { font: inherit; font-weight: 800; font-size: 1.3rem; padding: 8px 12px; border-radius: 12px; border: 3px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
+.avatars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.avatars button { aspect-ratio: 1; max-width: 100%; border-radius: 14px; border: 3px solid var(--line); background: var(--bg); padding: 8px; cursor: pointer; }
+.avatars button[aria-pressed="true"] { border-color: var(--band); background: color-mix(in srgb, var(--yellow) 35%, var(--bg)); }
+.avatars svg { width: 100%; height: 100%; }
+.dlg .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.dlg .btn { font: inherit; font-weight: 800; font-size: 1.1rem; padding: 8px 20px; border-radius: 999px; border: none; cursor: pointer; background: var(--yellow); color: #18204a; }
+.dlg .btn.ghost { background: transparent; color: var(--ink); border: 3px solid var(--line); }
+.dlg .btn.danger { background: #ff5d73; color: #fff; margin-right: auto; }
+.dlg .warn { margin: 0; font-weight: 800; }
 @media (prefers-reduced-motion: reduce) { .game { transition: none; } }
 </style>
 </head>
@@ -109,6 +158,7 @@ main {
   <div class="inner">
     <h1>Brain <span>Games</span></h1>
     <p>Fun games that make you think. Spot patterns, plan ahead and remember!</p>
+    <div class="who" id="who"></div>
   </div>
 </header>
 
@@ -116,9 +166,29 @@ main {
   <div class="inner">
     <p class="label">Pick a game</p>
     <div class="grid" id="games"><p class="empty">Loading games…</p></div>
+    <section class="scores" aria-labelledby="scoresTitle">
+      <p class="label" id="scoresTitle">Scoreboard</p>
+      <div class="tablewrap"><table id="board"></table></div>
+    </section>
   </div>
 </main>
 
+<div class="scrim" id="scrim" hidden>
+  <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <h2 id="dlgTitle">New player</h2>
+    <div id="dlgMain">
+      <label for="pname">Name</label>
+      <input id="pname" maxlength="14" autocomplete="off" placeholder="Your name">
+    </div>
+    <div>
+      <label>Pick a face</label>
+      <div class="avatars" id="avatars"></div>
+    </div>
+    <div class="row" id="dlgBtns"></div>
+  </div>
+</div>
+
+<script src="shared/profiles.js"></script>
 <script>
 // Add new games here: one entry per game folder.
 const GAMES = [
@@ -127,18 +197,70 @@ const GAMES = [
     title: 'Rocket Star Catcher',
     blurb: 'Fly through space catching stars and dodging rocks. Solve a Space Gate puzzle at the end of every level.',
     skills: ['Patterns', 'Numbers', 'Planning', 'Memory'],
-    accent: '#ffd23f', accentDark: '#c2410c'
+    accent: '#ffd23f', accentDark: '#c2410c',
+    stats: id => {
+      const sc = KBG.scores('rocket', id), save = KBG.get('rocket', {}, id);
+      return { played: sc.plays > 0 || (save.trophies || 0) > 0, best: sc.best.stars || 0, level: sc.best.level || 0, trophies: save.trophies || 0,
+        text: `Best ${sc.best.stars || 0} stars · level ${sc.best.level || 1} · ${save.trophies || 0} ${save.trophies === 1 ? 'trophy' : 'trophies'}` };
+    }
   },
   {
     slug: 'block-quest',
     title: 'Block Quest',
     blurb: 'Help Pip dig for gems, work out recipes, water the crops, build from blueprints and trade at the market. Every puzzle needs a plan!',
     skills: ['Planning', 'Rules', 'Cause and effect', '3D thinking', 'Working backwards'],
-    accent: '#5fb34a', accentDark: '#2f6b23'
+    accent: '#5fb34a', accentDark: '#2f6b23',
+    stats: id => {
+      const save = KBG.get('blockquest', {}, id);
+      const areas = ['mines', 'hut', 'farm', 'yard', 'market'];
+      const stars = areas.reduce((t, a) => t + (save[a] || []).reduce((s, v) => s + (v || 0), 0), 0);
+      const levels = areas.reduce((t, a) => t + (save[a] || []).filter(Boolean).length, 0);
+      const endless = Object.values(save.endless || {}).reduce((t, v) => t + v, 0);
+      return { played: levels > 0, stars, levels, endless, text: `${stars} / 144 stars · ${levels} of 48 levels` + (endless ? ` · ${endless} endless` : '') };
+    }
   }
 ];
 
-const grid = document.getElementById('games');
+const $ = id => document.getElementById(id);
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const STAR = '<svg viewBox="0 0 9 7" shape-rendering="crispEdges" aria-hidden="true"><path fill="#ffb800" d="M4 0h1v1h1v1h3v1H8v1H7v1h1v2H7V6H6V5H3v1H2v1H1V5h1V4H1V3H0V2h3V1h1z"/></svg>';
+
+function renderWho() {
+  const me = KBG.current();
+  const who = $('who'); who.innerHTML = '<span class="lab">Who\'s playing?</span>';
+  for (const p of KBG.players()) {
+    const b = document.createElement('button');
+    b.className = 'player'; b.type = 'button';
+    b.setAttribute('aria-pressed', p.id === me.id);
+    b.innerHTML = KBG.avatarSvg(p.avatar) + `<span>${esc(p.name)}</span>`;
+    b.addEventListener('click', () => { if (p.id === me.id) openDialog(p); else { KBG.switchTo(p.id); renderAll(); } });
+    who.appendChild(b);
+  }
+  const add = document.createElement('button');
+  add.className = 'player add'; add.type = 'button'; add.textContent = '+ Add player';
+  add.addEventListener('click', () => openDialog(null));
+  who.appendChild(add);
+  const edit = document.createElement('button');
+  edit.className = 'iconbtn'; edit.type = 'button'; edit.textContent = 'Edit ' + me.name;
+  edit.addEventListener('click', () => openDialog(KBG.current()));
+  who.appendChild(edit);
+}
+
+function renderBoard() {
+  const me = KBG.current();
+  const rows = KBG.players().map(p => ({ p, r: GAMES[0].stats(p.id), b: GAMES[1].stats(p.id) }));
+  const top = k => Math.max(0, ...rows.map(x => k(x)));
+  const cols = [
+    ['Rocket stars', x => x.r.best], ['Level', x => x.r.level], ['Trophies', x => x.r.trophies],
+    ['Block stars', x => x.b.stars], ['Endless', x => x.b.endless]
+  ];
+  $('board').innerHTML = '<thead><tr><th scope="col">Player</th>' + cols.map(([h]) => `<th scope="col">${h}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map(x => `<tr class="${x.p.id === me.id ? 'me' : ''}"><td><span class="pl">${KBG.avatarSvg(x.p.avatar)}${esc(x.p.name)}</span></td>` +
+      cols.map(([, k]) => { const v = k(x), t = top(k); return `<td class="${rows.length > 1 && v > 0 && v === t ? 'top' : ''}">${v}</td>`; }).join('') + '</tr>').join('') + '</tbody>';
+}
+
+function renderGames() {
+const grid = $('games');
 grid.innerHTML = '';
 for (const g of GAMES) {
   const a = document.createElement('a');
@@ -152,13 +274,73 @@ for (const g of GAMES) {
       <h2></h2>
       <p class="blurb"></p>
       <ul class="skills">${g.skills.map(() => '<li></li>').join('')}</ul>
+      <p class="mystats"></p>
       <span class="play" aria-hidden="true">Play</span>
     </div>`;
   a.querySelector('h2').textContent = g.title;
   a.querySelector('.blurb').textContent = g.blurb;
   a.querySelectorAll('.skills li').forEach((li, i) => li.textContent = g.skills[i]);
+  const st = g.stats(KBG.current().id), ms = a.querySelector('.mystats');
+  if (st.played) ms.innerHTML = STAR + `<span>${esc(st.text)}</span>`;
+  else { ms.textContent = 'Not played yet'; ms.classList.add('none'); }
   grid.appendChild(a);
 }
+}
+
+// add / edit player
+let editing = null, pickAvatar = 0;
+function openDialog(player) {
+  editing = player;
+  pickAvatar = player ? player.avatar : Math.floor(Math.random() * KBG.AVATARS.length);
+  $('dlgTitle').textContent = player ? 'Edit ' + player.name : 'New player';
+  $('pname').value = player ? player.name : '';
+  $('dlgMain').hidden = false; $('avatars').parentElement.hidden = false;
+  drawAvatars(); drawButtons(false);
+  $('scrim').hidden = false;
+  $('pname').focus();
+}
+function drawAvatars() {
+  const box = $('avatars'); box.innerHTML = '';
+  KBG.AVATARS.forEach((a, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('aria-label', a.name); b.setAttribute('aria-pressed', i === pickAvatar);
+    b.innerHTML = KBG.avatarSvg(i);
+    b.addEventListener('click', () => { pickAvatar = i; drawAvatars(); });
+    box.appendChild(b);
+  });
+}
+function mkBtn(label, cls, fn) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ' + cls; b.textContent = label; b.addEventListener('click', fn); $('dlgBtns').appendChild(b); return b; }
+function drawButtons(confirming) {
+  $('dlgBtns').innerHTML = '';
+  if (confirming) {
+    const w = document.createElement('p'); w.className = 'warn';
+    w.textContent = 'Delete ' + editing.name + ' and all their scores? This can\'t be undone.';
+    $('dlgBtns').appendChild(w);
+    mkBtn('Keep', 'ghost', () => drawButtons(false));
+    mkBtn('Delete', 'danger', () => { KBG.removePlayer(editing.id); closeDialog(); renderAll(); });
+    return;
+  }
+  if (editing) mkBtn('Delete', 'danger', () => drawButtons(true));
+  mkBtn('Cancel', 'ghost', closeDialog);
+  mkBtn(editing ? 'Save' : 'Add player', '', save);
+}
+function save() {
+  const name = $('pname').value.trim();
+  if (!name) { $('pname').focus(); $('pname').placeholder = 'Type a name first'; return; }
+  if (editing) KBG.updatePlayer(editing.id, { name, avatar: pickAvatar });
+  else KBG.addPlayer(name, pickAvatar);
+  closeDialog(); renderAll();
+}
+function closeDialog() { $('scrim').hidden = true; }
+$('pname').addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+$('scrim').addEventListener('click', e => { if (e.target === $('scrim')) closeDialog(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !$('scrim').hidden) closeDialog(); });
+
+function renderAll() { renderWho(); renderGames(); renderBoard(); }
+renderAll();
+// scores change while you play: refresh when you come back to this page
+addEventListener('pageshow', renderAll);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAll(); });
 
 // a few pixel stars in the header
 const dots = document.getElementById('dots');

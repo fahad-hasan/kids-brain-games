@@ -199,6 +199,9 @@ canvas { display: block; width: 100%; height: 100%; }
   text-shadow: 0 4px 0 #c2410c;
 }
 .card p { margin: 0; font-size: clamp(1.1rem, 4vw, 1.45rem); max-width: 24ch; text-wrap: balance; }
+.whoami { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+.whoami svg { width: 30px; height: 30px; background: rgba(255,255,255,.12); border-radius: 6px; padding: 2px; }
+.whoami a { color: var(--star); }
 .card .big { font-size: clamp(1.6rem, 6vw, 2.2rem); font-weight: 800; }
 .go {
   font: inherit; font-size: 2rem; font-weight: 800;
@@ -249,6 +252,7 @@ canvas { display: block; width: 100%; height: 100%; }
     <canvas id="c"></canvas>
     <div class="card" id="start">
       <h1>Rocket Star Catcher</h1>
+      <p class="whoami" id="whoami"></p>
       <p>Slide your finger to fly. Catch the stars! Dodge the space rocks. Grab green fuel cans to fill your tank. Find 3 rare pink gems to win a trophy! Solve the Space Gate puzzle to reach the next level.</p>
       <div class="shelf" data-shelf></div>
       <button class="go" id="go" type="button">Fly!</button>
@@ -278,6 +282,7 @@ canvas { display: block; width: 100%; height: 100%; }
   </div>
 </div>
 
+<script src="../shared/profiles.js"></script>
 <script>
 (() => {
   const stage = document.getElementById('stage');
@@ -311,14 +316,11 @@ canvas { display: block; width: 100%; height: 100%; }
   const gemIcons = [...gemsEl.children];
   const trophyCard = document.getElementById('trophy');
   let gemCount = 0, trophies = 0;
-  try {
-    const saved = JSON.parse(localStorage.getItem('rocket-gems') || '{}');
-    gemCount = Math.min(GEMS_FOR_TROPHY - 1, saved.gems | 0);
-    trophies = saved.trophies | 0;
-  } catch (_) {}
-  function saveGems() {
-    try { localStorage.setItem('rocket-gems', JSON.stringify({ gems: gemCount, trophies })); } catch (_) {}
-  }
+  // gems and trophies belong to whoever is playing (see shared/profiles.js)
+  const saved = KBG.get('rocket', {});
+  gemCount = Math.min(GEMS_FOR_TROPHY - 1, saved.gems | 0);
+  trophies = saved.trophies | 0;
+  function saveGems() { KBG.set('rocket', { gems: gemCount, trophies }); }
   function renderGems() {
     gemIcons.forEach((g, i) => g.classList.toggle('got', i < gemCount));
     gemsEl.setAttribute('aria-label', 'Gems: ' + gemCount + ' of ' + GEMS_FOR_TROPHY);
@@ -364,7 +366,7 @@ canvas { display: block; width: 100%; height: 100%; }
   const shipColors = ['#ff5d73', '#4cc9f0', '#7ae582', '#c77dff', '#ff9f1c'];
   let colorIdx = 0;
   let stars = [], rocks = [], cans = [], gemsFalling = [], sparks = [], bg = [];
-  let score = 0, best = 0, lives = MAX_LIVES, fuel = 1;
+  let score = 0, best = KBG.scores('rocket').best.stars || 0, lives = MAX_LIVES, fuel = 1;
   let playing = false, paused = false, t = 0, last = 0, nextStar = 0, nextRock = 2, nextCan = 8;
   let level = 1, levelTime = 0, runTime = 0, gateNum = 0;
   // Canyon walls: rows of left/right edges that scroll down; a "squeeze" narrows the gap for a while
@@ -460,6 +462,7 @@ canvas { display: block; width: 100%; height: 100%; }
   function gameOver() {
     playing = false;
     best = Math.max(best, score);
+    KBG.record('rocket', { stars: score, level: gateNum + 1, gates: gateNum });
     document.getElementById('final').textContent = 'You caught ' + score + (score === 1 ? ' star' : ' stars');
     document.getElementById('best').textContent = 'You reached level ' + (gateNum + 1) + '. ' + (score > 0 && score === best ? 'Your best yet!' : 'Best so far: ' + best);
     [784, 659, 523].forEach((f, i) => setTimeout(() => beep(f, .2, 'triangle', .15), i * 160));
@@ -1279,6 +1282,9 @@ canvas { display: block; width: 100%; height: 100%; }
   resize();
   ship.x = W / 2;
   renderLives(); renderFuel(); renderGems();
+  const me = KBG.current();
+  document.getElementById('whoami').innerHTML = KBG.avatarSvg(me.avatar) + '<span></span><a href="../">Change</a>';
+  document.getElementById('whoami').querySelector('span').textContent = 'Playing as ' + me.name + ' ·';
   gemsFalling.push({ x: W * 0.45, y: H * 0.2, vy: 0, sway: 0 });
   stars.push({ x: W * 0.3, y: H * 0.35, r: 18, spin: 0, vy: 0 });
   stars.push({ x: W * 0.65, y: H * 0.55, r: 18, spin: 1, vy: 0 });

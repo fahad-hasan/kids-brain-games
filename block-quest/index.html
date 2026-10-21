@@ -203,6 +203,10 @@ button { font: inherit; color: inherit; }
 .lvl .small { font-size: 1rem; }
 .lvl.endless svg.lock { width: 24px; height: 24px; }
 
+.whoami { display: flex; justify-content: center; align-items: center; gap: 8px; font-weight: 800; }
+.whoami svg { width: 30px; height: 30px; background: var(--panel); border-radius: 6px; padding: 2px; }
+.whoami a { color: var(--ink); }
+
 /* builder's yard */
 .views { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .view { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border-radius: 6px; background: var(--panel); box-shadow: inset 0 0 0 3px var(--vc); }
@@ -288,6 +292,7 @@ body.farm { background: var(--sky); }
         <span id="pipHero"></span>
         <h2>Block Quest</h2>
         <p>Help Pip dig, craft, farm, build and trade. Every puzzle needs a plan!</p>
+        <p class="whoami" id="whoami"></p>
       </div>
       <div class="areas" id="areas"></div>
       <div class="ground"></div>
@@ -321,6 +326,7 @@ body.farm { background: var(--sky); }
   </div>
 </div>
 
+<script src="../shared/profiles.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -442,14 +448,22 @@ body.farm { background: var(--sky); }
   for (const [k, v] of Object.entries(T)) if (v) root.setProperty('--t-' + k, `url(${v})`);
 
   // ---------- saving ----------
-  const SAVE_KEY = 'block-quest-v1';
+  // progress belongs to whoever is playing (see shared/profiles.js)
   let save = { mines: [], hut: [], farm: [], yard: [], market: [], endless: {}, minesV: 2 };
-  try {
-    const old = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
+  {
+    const old = KBG.get('blockquest', {});
     if (old.minesV !== 2) delete old.mines;   // the mines were rebuilt harder, so start them fresh
     save = Object.assign(save, old, { minesV: 2 });
-  } catch (_) {}
-  const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (_) {} };
+  }
+  const persist = () => {
+    KBG.set('blockquest', save);
+    const areas = ['mines', 'hut', 'farm', 'yard', 'market'];
+    KBG.setBest('blockquest', {
+      stars: areas.reduce((t, a) => t + save[a].reduce((s, v) => s + (v || 0), 0), 0),
+      levels: areas.reduce((t, a) => t + save[a].filter(Boolean).length, 0),
+      endless: Object.values(save.endless).reduce((t, v) => t + v, 0)
+    });
+  };
 
   // ---------- screens ----------
   const AREAS = {
@@ -471,6 +485,9 @@ body.farm { background: var(--sky); }
     $('title').textContent = 'Block Quest';
     $('back').hidden = true; $('hear').hidden = true;
     $('pipHero').innerHTML = PIP.replace('<svg', '<svg class="pip-hero"');
+    const me = KBG.current();
+    $('whoami').innerHTML = KBG.avatarSvg(me.avatar) + '<span></span><a href="../">Change</a>';
+    $('whoami').querySelector('span').textContent = 'Playing as ' + me.name + ' ·';
     const wrap = $('areas'); wrap.innerHTML = '';
     for (const [key, a] of Object.entries(AREAS)) {
       const done = save[key].filter(Boolean).length;
@@ -568,6 +585,7 @@ body.farm { background: var(--sky); }
     }
     save[area][lv] = Math.max(save[area][lv] || 0, stars);
     persist();
+    KBG.record('blockquest-levels', { stars }, { total: true });
     const areaDone = save[area].filter(Boolean).length === a.count && lv === a.count - 1;
     tune(stars === 3 ? [523, 659, 784, 1047, 1319] : [523, 659, 784, 1047]);
     $('winArt').innerHTML = areaDone ? TROPHY : `<div class="bigstars">${starsHtml(stars)}</div>`;
