@@ -236,6 +236,20 @@ const GAMES = [
       return { played: levels > 0, stars, levels, endless, text: `${stars} / 150 stars · ${levels} of 50 levels` + (endless ? ` · ${endless} endless` : '') };
     },
     board: [['Brick stars', st => st.stars], ['Brick endless', st => st.endless]]
+  },
+  {
+    slug: 'flip-find',
+    title: 'Flip & Find',
+    blurb: 'A 4×4 memory game. Flip two tiles at a time and find all 8 pairs in as few moves as you can. Tricky mode has look-alike pairs!',
+    skills: ['Memory', 'Focus', 'Noticing details'],
+    accent: '#ff6b6b', accentDark: '#16213e',
+    stats: id => {
+      const s = KBG.get('flipfind', {}, id);
+      const bests = Object.values(s.best || {}).map(b => b.moves);
+      const best = bests.length ? Math.min(...bests) : 0;
+      return { played: (s.games || 0) > 0, games: s.games || 0, best, text: `Best ${best} moves · ${s.games || 0} ${s.games === 1 ? 'game' : 'games'}` + (s.perfect ? ` · ${s.perfect} perfect` : '') };
+    },
+    board: [['Flip best moves', st => st.best, 'low'], ['Flip games', st => st.games]]
   }
 ];
 
@@ -268,11 +282,12 @@ function renderBoard() {
   const me = KBG.current();
   // every game adds its own columns
   const rows = KBG.players().map(p => ({ p, st: GAMES.map(g => g.stats(p.id)) }));
-  const cols = GAMES.flatMap((g, gi) => g.board.map(([label, f]) => [label, x => f(x.st[gi])]));
-  const top = k => Math.max(0, ...rows.map(x => k(x)));
+  // a column marked 'low' is best when smallest (like fewest moves); 0 means not played yet
+  const cols = GAMES.flatMap((g, gi) => g.board.map(([label, f, dir]) => [label, x => f(x.st[gi]), dir]));
+  const top = (k, dir) => { const vals = rows.map(x => k(x)).filter(v => v > 0); return vals.length ? (dir === 'low' ? Math.min(...vals) : Math.max(...vals)) : -1; };
   $('board').innerHTML = '<thead><tr><th scope="col">Player</th>' + cols.map(([h]) => `<th scope="col">${h}</th>`).join('') + '</tr></thead><tbody>' +
     rows.map(x => `<tr class="${x.p.id === me.id ? 'me' : ''}"><td><span class="pl">${KBG.avatarSvg(x.p.avatar)}${esc(x.p.name)}</span></td>` +
-      cols.map(([, k]) => { const v = k(x), t = top(k); return `<td class="${rows.length > 1 && v > 0 && v === t ? 'top' : ''}">${v}</td>`; }).join('') + '</tr>').join('') + '</tbody>';
+      cols.map(([, k, dir]) => { const v = k(x), t = top(k, dir); return `<td class="${rows.length > 1 && v > 0 && v === t ? 'top' : ''}">${v > 0 || dir !== 'low' ? v : '–'}</td>`; }).join('') + '</tr>').join('') + '</tbody>';
 }
 
 function renderGames() {

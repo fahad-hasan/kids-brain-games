@@ -12,6 +12,7 @@ Live: https://fahad-hasan.github.io/kids-brain-games/
 | `rocket-star-catcher/` | Rocket Star Catcher | Patterns, numbers, planning, memory |
 | `block-quest/` | Block Quest | Gem Mines (route planning), Crafting Hut (rules from examples), Farm Fields (cause and effect), Builder's Yard (3D views), Village Market (multi-step trades, working backwards) |
 | `brickville/` | Brickville | Obby Tower (sequencing and timing), Escape Rooms (deduction, number patterns, logic), Tycoon Town (money maths, planning ahead), Colour Switch (timing, thinking steps ahead), Castle Defence (spatial strategy) |
+| `flip-find/` | Flip & Find | Memory (4×4 pairs; Easy peek, Normal, Tricky look-alike colours) |
 
 ## Players and scores
 
