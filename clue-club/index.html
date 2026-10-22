@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Clue Club</title>
+<meta name="description" content="Crack secret rules and solve mysteries with evidence. A new case every time.">
+<meta name="theme-color" content="#1f3a5f">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Clue Club">
+<link rel="preload" href="../fonts/baloo2-800.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: "Baloo 2"; font-weight: 600; font-display: swap; src: url("../fonts/baloo2-600.woff2") format("woff2"); }
+@font-face { font-family: "Baloo 2"; font-weight: 800; font-display: swap; src: url("../fonts/baloo2-800.woff2") format("woff2"); }
+
+/* Layout: a detective's case-file. Navy top band, then one screen at a time on ruled notebook paper.
+   Puzzles stack: the question, the evidence, the tools, then the decision. One deliberate light look. */
+:root {
+  --navy: #1f3a5f;
+  --navy-2: #2c4f7c;
+  --paper: #fbf7ec;
+  --rule: #d8e3f2;
+  --margin: #f2a7a7;
+  --ink: #1d2a3d;
+  --muted: #5d6b82;
+  --card: #ffffff;
+  --mark: #ffe066;
+  --yes: #2f9e5a;
+  --no: #d64545;
+  --font: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: light;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: 100%;
+  background: var(--navy);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { height: 100%; }
+body {
+  margin: 0; height: 100%; color: var(--ink); font-family: var(--font); font-weight: 600; font-size: 1.05rem;
+  background: var(--paper);
+  overflow: hidden; touch-action: manipulation; -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+.app { height: 100%; display: flex; flex-direction: column; }
+.top { display: flex; align-items: center; gap: 8px; background: var(--navy); color: #fff; padding-block: 10px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.top h1 { flex: 1; min-width: 0; margin: 0; font-size: clamp(1.2rem, 5vw, 1.6rem); font-weight: 800; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ibtn { flex: none; width: 46px; height: 46px; display: grid; place-items: center; background: var(--navy-2); border: 2px solid rgba(255,255,255,.25); border-radius: 12px; color: #fff; cursor: pointer; text-decoration: none; padding: 0; }
+.ibtn svg { width: 24px; height: 24px; }
+#sound .mute, #sound[aria-pressed="false"] .waves { display: none; }
+#sound[aria-pressed="false"] .mute { display: inline; }
+.ibtn:focus-visible, .btn:focus-visible, button:focus-visible { outline: 4px solid var(--mark); outline-offset: 2px; }
+
+.screen {
+  flex: 1; min-height: 0; overflow-y: auto;
+  background: repeating-linear-gradient(var(--paper) 0 31px, var(--rule) 31px 32px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 26px;
+}
+.col { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+#stage { width: 100%; }
+
+.hero { text-align: center; }
+.hero svg.badge { width: 86px; height: 86px; }
+.hero h2 { margin: 2px 0 0; font-size: clamp(2.6rem, 12vw, 3.8rem); line-height: 1; font-weight: 800; color: var(--navy); letter-spacing: .01em; }
+.hero h2 span { background: linear-gradient(transparent 55%, var(--mark) 55%); padding: 0 4px; }
+.hero p { margin: 8px auto 0; max-width: 30ch; }
+.whoami { display: flex; justify-content: center; align-items: center; gap: 8px; font-weight: 800; color: var(--muted); }
+.whoami svg { width: 26px; height: 26px; }
+.whoami a { color: var(--ink); }
+.areas { display: grid; gap: 14px; width: 100%; }
+.area { display: grid; grid-template-columns: 80px 1fr; gap: 14px; align-items: center; padding: 14px; text-align: left; cursor: pointer; background: var(--card); border: 2px solid var(--ink); border-radius: 6px; box-shadow: 4px 4px 0 var(--ink); }
+.area:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+.area .art { width: 80px; height: 80px; border-radius: 6px; display: grid; place-items: center; background: var(--navy); }
+.area .art svg { width: 58px; height: 58px; }
+.area b { display: block; font-size: 1.45rem; line-height: 1.1; }
+.area span { display: block; color: var(--muted); font-size: .98rem; }
+.area .prog { margin-top: 6px; display: flex; align-items: center; gap: 6px; font-weight: 800; color: var(--ink); }
+.area .prog svg { width: 20px; height: 20px; }
+
+.blurb { margin: 0; text-align: center; font-size: clamp(1.2rem, 4.6vw, 1.45rem); font-weight: 800; line-height: 1.2; text-wrap: balance; }
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 12px; width: 100%; }
+.lvl { aspect-ratio: 1; max-width: 100%; border: 2px solid var(--ink); border-radius: 6px; background: var(--card); box-shadow: 3px 3px 0 var(--ink); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; }
+.lvl:disabled { opacity: .45; cursor: default; }
+.lvl.next { background: var(--mark); }
+.lvl .stars { display: flex; gap: 1px; } .lvl .stars svg { width: 18px; height: 18px; }
+.lvl svg.lock { width: 26px; height: 26px; }
+.lvl.endless { grid-column: span 2; aspect-ratio: auto; min-height: 84px; flex-direction: row; gap: 12px; }
+.lvl .inf { font-size: 2.4rem; line-height: 1; color: var(--navy-2); }
+.lvl .small { font-size: 1rem; }
+
+.q { margin: 0; text-align: center; font-size: clamp(1.3rem, 5vw, 1.8rem); font-weight: 800; line-height: 1.15; text-wrap: balance; }
+.status { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 1px 12px; font-weight: 800; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.chip.goal { background: var(--mark); }
+.msg { min-height: 1.5em; text-align: center; font-weight: 800; max-width: 36ch; text-wrap: balance; }
+.msg.bad { color: var(--no); } .msg.good { color: var(--yes); }
+.row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.btn { border: 2px solid var(--ink); border-radius: 8px; cursor: pointer; padding: 6px 18px; font-size: 1.12rem; font-weight: 800; background: var(--mark); box-shadow: 3px 3px 0 var(--ink); }
+.btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.btn.alt { background: var(--card); }
+.btn:disabled { opacity: .45; cursor: default; }
+.label { font-size: .82rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0; align-self: flex-start; }
+
+.overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(20, 30, 50, .55); padding: 20px; }
+.win { width: min(390px, 100%); text-align: center; padding: 22px 18px 20px; background: var(--card); border: 3px solid var(--ink); border-radius: 8px; box-shadow: 6px 6px 0 var(--ink); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.win h2 { margin: 0; font-size: 2rem; line-height: 1.05; }
+.win p { margin: 0; font-size: 1.08rem; max-width: 30ch; }
+.bigstars { display: flex; gap: 6px; }
+.bigstars svg { width: 54px; height: 54px; animation: pop .45s backwards; }
+.bigstars svg:nth-child(2) { animation-delay: .15s; } .bigstars svg:nth-child(3) { animation-delay: .3s; }
+.trophy { width: 100px; height: 100px; animation: pop .5s; }
+@keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+@keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.shake { animation: shake .3s; }
+
+/* RULE DETECTIVE */
+.machine { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bin { border: 2px solid var(--ink); border-radius: 8px; padding: 6px; min-height: 92px; background: var(--card); }
+.bin h4 { margin: 0 0 4px; font-size: .95rem; display: flex; align-items: center; gap: 6px; }
+.bin.yes h4 { color: var(--yes); } .bin.no h4 { color: var(--no); }
+.bin.yes { box-shadow: inset 0 0 0 3px #c7eed6; } .bin.no { box-shadow: inset 0 0 0 3px #f6cfcf; }
+.bin .items { display: flex; flex-wrap: wrap; gap: 4px; }
+.thing { width: 42px; height: 42px; display: grid; place-items: center; position: relative; border-radius: 6px; background: #f3f5f9; }
+.thing svg { width: 100%; height: 100%; }
+.thing.tested::after { content: ""; position: absolute; right: 1px; top: 1px; width: 9px; height: 9px; border-radius: 50%; background: var(--navy-2); }
+.thing.new { animation: pop .35s; }
+.lamp { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 800; }
+.lamp i { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ink); background: #d6dbe5; }
+.lamp i.on.y { background: var(--yes); box-shadow: 0 0 12px var(--yes); } .lamp i.on.n { background: var(--no); box-shadow: 0 0 12px var(--no); }
+.shelf { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; padding: 8px; border: 2px dashed var(--muted); border-radius: 8px; background: rgba(255,255,255,.7); }
+.shelf button { aspect-ratio: 1; max-width: 100%; border: 2px solid var(--ink); border-radius: 8px; background: var(--card); padding: 3px; cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
+.shelf button svg { width: 100%; height: 100%; }
+.shelf button:disabled { opacity: .25; box-shadow: none; cursor: default; }
+.shelf button.hint { outline: 4px solid var(--mark); box-shadow: 0 0 14px #e8b800; }
+.options { width: 100%; display: grid; gap: 8px; }
+.option { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 2px solid var(--ink); border-radius: 8px; background: var(--card); }
+.option.out { opacity: .45; text-decoration: line-through; background: #f1eded; }
+.option .btn { padding: 2px 12px; font-size: 1rem; flex: none; }
+.rule { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.atom { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 4px; border-radius: 999px; background: #eef2f8; border: 2px solid var(--ink); font-weight: 800; }
+.atom svg { width: 22px; height: 22px; }
+.op { font-weight: 800; font-size: .85rem; padding: 0 6px; border-radius: 6px; color: #fff; background: var(--navy-2); }
+.op.NOT { background: var(--no); } .op.par { background: none; color: var(--ink); font-size: 1.3rem; padding: 0; }
+
+/* WHO DID IT */
+.case { width: 100%; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 8px; background: var(--mark); font-weight: 800; text-align: center; font-size: 1.15rem; }
+.suspects { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; }
+.sus { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 4px; border: 2px solid var(--ink); border-radius: 8px; background: var(--card); cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
+.sus svg { width: 56px; height: 92px; }
+.sus b { font-size: 1rem; line-height: 1.1; }
+.sus.out { background: #efe9e9; }
+.sus.out svg { opacity: .35; }
+.sus.out::after { content: "NOT ME"; position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%) rotate(-14deg); font-weight: 800; font-size: 1.05rem; color: var(--no); border: 3px solid var(--no); border-radius: 6px; padding: 0 6px; background: rgba(255,255,255,.85); }
+.sus.hint { outline: 4px solid var(--mark); box-shadow: 0 0 14px #e8b800; }
+.notebook { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.clue { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 2px solid var(--ink); border-radius: 8px; background: var(--card); }
+.clue svg { width: 34px; height: 34px; flex: none; }
+.clue.shaky { border-style: dashed; background: #fff8e6; }
+.clue.shaky .tag { font-size: .75rem; font-weight: 800; color: #b45309; background: #fde7b0; border-radius: 6px; padding: 0 6px; margin-left: 6px; white-space: nowrap; }
+.clue.new { animation: pop .3s; }
+.clue.hl { box-shadow: 0 0 0 4px var(--mark); }
+@media (prefers-reduced-motion: reduce) { .bigstars svg, .trophy, .shake, .thing.new, .clue.new { animation: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="ibtn" id="back" type="button" aria-label="Back" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 4L2 12l8 8v-5h12V9H10z"/></svg></button>
+    <h1 id="title">Clue Club</h1>
+    <button class="ibtn" id="hear" type="button" aria-label="Read it to me" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 4h18v12H9l-5 4v-4H3z"/><path fill="none" stroke="#1f3a5f" stroke-width="2" stroke-linecap="round" d="M7 8.5h10M7 12h6"/></svg></button>
+    <button class="ibtn" id="sound" type="button" aria-pressed="true" aria-label="Sound on"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z"/><path class="waves" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/><path class="mute" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M16 9l6 6M22 9l-6 6"/></svg></button>
+    <a class="ibtn" href="../" aria-label="All games"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></a>
+  </header>
+
+  <section class="screen" id="mapScreen">
+    <div class="col">
+      <div class="hero">
+        <span id="badge"></span>
+        <h2>Clue <span>Club</span></h2>
+        <p>Real detectives test their ideas and trust only solid evidence. Every case is brand new!</p>
+        <p class="whoami" id="whoami"></p>
+      </div>
+      <div class="areas" id="areas"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="levelScreen" hidden>
+    <div class="col">
+      <p class="blurb" id="areaBlurb"></p>
+      <div class="levels" id="levels"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="playScreen" hidden>
+    <div class="col">
+      <h2 class="q" id="q"></h2>
+      <div class="status" id="status"></div>
+      <div id="stage" class="col"></div>
+      <div class="msg" id="msg" aria-live="polite"></div>
+      <div class="row" id="actions"></div>
+    </div>
+  </section>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="win" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div id="winArt"></div>
+    <h2 id="winTitle">Case closed!</h2>
+    <p id="winText"></p>
+    <div class="row" id="winBtns"></div>
+  </div>
+</div>
+
+<script src="../shared/profiles.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const pickR = (r, a) => a[Math.floor(r() * a.length)];
+  const shuffleR = (r, arr) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  // Random seeds come from the browser's crypto when available, so every puzzle is new.
+  const freshSeed = () => { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (_) { return Math.floor(Math.random() * 4294967295); } };
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+
+  // ======================================================================
+  // RULE DETECTIVE: a machine lets some things through by a secret rule. Test things, then pick the rule.
+  // ======================================================================
+  const R_COLOURS = ['red', 'blue', 'green', 'yellow', 'purple'];
+  const R_SHAPES = ['circle', 'square', 'triangle', 'star', 'heart'];
+  const R_SIZES = ['big', 'small'];
+  const R_PATTERNS = ['plain', 'stripes', 'dots'];
+  const R_ITEMS = [];
+  for (const colour of R_COLOURS) for (const shape of R_SHAPES) for (const size of R_SIZES) for (const pattern of R_PATTERNS)
+    R_ITEMS.push({ id: R_ITEMS.length, colour, shape, size, pattern });
+  // atoms: the building blocks of rules. word = what the chip says.
+  const R_ATOMS = [
+    ...R_COLOURS.map(c => ({ id: c, attr: 'colour', word: c, test: it => it.colour === c })),
+    ...R_SHAPES.map(s => ({ id: s, attr: 'shape', word: s, test: it => it.shape === s })),
+    { id: 'big', attr: 'size', word: 'big', test: it => it.size === 'big' },
+    { id: 'small', attr: 'size', word: 'small', test: it => it.size === 'small' },
+    { id: 'plain', attr: 'pattern', word: 'plain', test: it => it.pattern === 'plain' },
+    { id: 'stripes', attr: 'pattern', word: 'stripy', test: it => it.pattern === 'stripes' },
+    { id: 'dots', attr: 'pattern', word: 'spotty', test: it => it.pattern === 'dots' },
+    { id: 'corners', attr: 'shape', word: 'has corners', test: it => ['square', 'triangle', 'star'].includes(it.shape) }
+  ];
+  const atomById = id => R_ATOMS.find(a => a.id === id);
+  // A rule: { id, parts: [chip tokens], say, test }
+  const rAtom = a => ({ id: a.id, parts: [{ atom: a.id }], say: a.word, test: a.test });
+  const rNot = a => ({ id: '!' + a.id, parts: [{ op: 'NOT' }, { atom: a.id }], say: 'NOT ' + a.word, test: it => !a.test(it) });
+  const rAnd = (a, b, notB) => ({ id: a.id + '&' + (notB ? '!' : '') + b.id, parts: [{ atom: a.id }, { op: 'AND' }, ...(notB ? [{ op: 'NOT' }] : []), { atom: b.id }], say: a.word + ' AND ' + (notB ? 'NOT ' : '') + b.word, test: it => a.test(it) && (notB ? !b.test(it) : b.test(it)) });
+  const rOr = (a, b) => ({ id: a.id + '|' + b.id, parts: [{ atom: a.id }, { op: 'OR' }, { atom: b.id }], say: a.word + ' OR ' + b.word, test: it => a.test(it) || b.test(it) });
+  const rOrAnd = (a, b, c) => ({ id: '(' + a.id + '|' + b.id + ')&' + c.id, parts: [{ op: '(' }, { atom: a.id }, { op: 'OR' }, { atom: b.id }, { op: ')' }, { op: 'AND' }, { atom: c.id }], say: a.word + ' OR ' + b.word + ', AND ' + c.word, test: it => (a.test(it) || b.test(it)) && c.test(it) });
+  const plain = R_ATOMS.filter(a => a.id !== 'corners');
+  const sameAttr = (a, b) => a.attr === b.attr || (a.attr === 'shape' && b.attr === 'shape');
+  function randomRule(r, kind) {
+    const A = () => pickR(r, plain);
+    const two = (same) => { for (;;) { const a = A(), b = A(); if (a.id !== b.id && (same ? a.attr === b.attr : a.attr !== b.attr) && !(a.id === 'corners' || b.id === 'corners')) return [a, b]; } };
+    if (kind === 'colourshape') return rAtom(pickR(r, plain.filter(a => a.attr === 'colour' || a.attr === 'shape')));
+    if (kind === 'atom') return rAtom(pickR(r, R_ATOMS));
+    if (kind === 'not') return rNot(pickR(r, R_ATOMS.filter(a => a.attr !== 'size')));
+    if (kind === 'and') { const [a, b] = two(false); return rAnd(a, b); }
+    if (kind === 'andnot') { const [a, b] = two(false); return rAnd(a, b, true); }
+    if (kind === 'orsame') { const [a, b] = two(true); return rOr(a, b); }
+    if (kind === 'oracross') { const [a, b] = two(false); return rOr(a, b); }
+    if (kind === 'orand') { const [a, b] = two(true); let c; do { c = A(); } while (c.attr === a.attr || c.id === 'corners'); return rOrAnd(a, b, c); }
+  }
+  const RULE_CACHE = {};
+  function allRules(kind) {
+    if (RULE_CACHE[kind]) return RULE_CACHE[kind];
+    const P = plain, out = [];
+    if (kind === 'colourshape') P.filter(a => a.attr === 'colour' || a.attr === 'shape').forEach(a => out.push(rAtom(a)));
+    if (kind === 'atom') R_ATOMS.forEach(a => out.push(rAtom(a)));
+    if (kind === 'not') R_ATOMS.filter(a => a.attr !== 'size').forEach(a => out.push(rNot(a)));
+    for (const a of P) for (const b of P) {
+      if (a.id === b.id) continue;
+      if (kind === 'and' && a.attr !== b.attr && a.id < b.id) out.push(rAnd(a, b));
+      if (kind === 'andnot' && a.attr !== b.attr) out.push(rAnd(a, b, true));
+      if (kind === 'orsame' && a.attr === b.attr && a.id < b.id) out.push(rOr(a, b));
+      if (kind === 'oracross' && a.attr !== b.attr && a.id < b.id) out.push(rOr(a, b));
+      if (kind === 'orand' && a.attr === b.attr && a.id < b.id) for (const c of P) if (c.attr !== a.attr) out.push(rOrAnd(a, b, c));
+    }
+    return (RULE_CACHE[kind] = out);
+  }
+  // what the true rule can be at each level, and what kinds of wrong answers to offer
+  const RULE_SPEC = [
+    { truth: ['colourshape'], decoys: ['colourshape'], shelf: 8, ex: [1, 1], loose: true },
+    { truth: ['atom'], decoys: ['atom'], shelf: 9, ex: [1, 1] },
+    { truth: ['not'], decoys: ['not', 'atom'], shelf: 9 },
+    { truth: ['atom', 'not'], decoys: ['atom', 'not'], shelf: 10 },
+    { truth: ['and'], decoys: ['and', 'atom'], shelf: 10 },
+    { truth: ['orsame'], decoys: ['orsame', 'atom', 'not'], shelf: 10 },
+    { truth: ['andnot'], decoys: ['andnot', 'and', 'atom'], shelf: 11 },
+    { truth: ['oracross'], decoys: ['oracross', 'orsame', 'atom'], shelf: 11 },
+    { truth: ['and', 'andnot', 'oracross'], decoys: ['and', 'andnot', 'oracross', 'orsame'], shelf: 12 },
+    { truth: ['orand'], decoys: ['orand', 'and', 'oracross'], shelf: 12 }
+  ];
+  function makeRule(lv, seed) {
+    const spec = RULE_SPEC[lv];
+    for (let tries = 0; tries < 800; tries++) {
+      const r = rng(seed + tries * 7919);
+      const truth = randomRule(r, pickR(r, spec.truth));
+      const yes = R_ITEMS.filter(truth.test), no = R_ITEMS.filter(it => !truth.test(it));
+      if (yes.length < 6 || no.length < 6) continue;
+      // two examples that pass and two that don't, shown at the start
+      const [ny, nn] = spec.ex || [2, 2];
+      const examples = [...shuffleR(r, yes).slice(0, ny).map(it => ({ it, ok: true })), ...shuffleR(r, no).slice(0, nn).map(it => ({ it, ok: false }))];
+      const exIds = new Set(examples.map(e => e.it.id));
+      const shelf = shuffleR(r, [...shuffleR(r, yes.filter(it => !exIds.has(it.id))).slice(0, Math.ceil(spec.shelf / 2)), ...shuffleR(r, no.filter(it => !exIds.has(it.id))).slice(0, Math.floor(spec.shelf / 2))]);
+      // wrong answers must fit the examples too, so only testing can tell them apart
+      const fits = shuffleR(r, spec.decoys.flatMap(allRules)).filter(c => c.id !== truth.id
+        && (spec.loose || examples.every(e => c.test(e.it) === e.ok))
+        && shelf.some(it => c.test(it) !== truth.test(it)));
+      const decoys = [];
+      for (const c of fits) { if (decoys.length >= 3) break; if (!decoys.some(x => x.id === c.id)) decoys.push(c); }
+      if (decoys.length < 3) continue;
+      // fewest tests that rule out every wrong answer
+      let minTests = Infinity;
+      // a wrong answer is ruled out by an example you were shown, or by something you tested
+      const covers = set => decoys.every(dc => examples.some(e => dc.test(e.it) !== e.ok) || set.some(it => dc.test(it) !== truth.test(it)));
+      const rec = (start, set) => { if (set.length >= minTests) return; if (covers(set)) { minTests = set.length; return; } for (let i = start; i < shelf.length; i++) rec(i + 1, [...set, shelf[i]]); };
+      rec(0, []);
+      if (minTests < (lv >= 4 ? 2 : 1)) continue;
+      const options = shuffleR(r, [truth, ...decoys]);
+      return { truth, examples, shelf, options, minTests, sig: 'R' + lv + ':' + truth.id + ':' + examples.map(e => e.it.id).join(',') + ':' + shelf.map(i => i.id).sort((a, b) => a - b).join(',') };
+    }
+    throw new Error('no rule ' + lv);
+  }
+
+  // ======================================================================
+  // WHO DID IT?: suspects, clues (some solid, some shaky), work out the one who did it.
+  // ======================================================================
+  const NAMES = ['Ava', 'Leo', 'Mia', 'Max', 'Zoe', 'Sam', 'Ivy', 'Ben', 'Ruby', 'Kai', 'Ella', 'Finn', 'Noah', 'Lily', 'Omar', 'Maya', 'Jack', 'Isla', 'Theo', 'Aria'];
+  const HATS = ['none', 'cap', 'beanie', 'tophat'];
+  const SHIRTS = ['red', 'blue', 'green', 'yellow', 'purple'];
+  const CASES = [
+    'Who ate the last cupcake at the bake sale?', 'Who took the class goldfish food?', 'Who hid the football trophy?',
+    'Who let the goat out of the farm pen?', 'Who painted the school fence purple?', 'Who took the teacher\'s golden pen?',
+    'Who swapped the sugar for salt?', 'Who left the library window open?', 'Who borrowed the robot kit without asking?',
+    'Who popped all the party balloons?', 'Who took the biggest pumpkin?', 'Who ate the picnic sandwiches?'
+  ];
+  const ALIBIS = ['was at swimming lessons the whole time', 'was helping in the library all afternoon', 'was at the dentist', 'was on the bus home with the driver', 'was at football practice with the coach', 'was baking with Grandma'];
+  const WITNESSES = ['Old Mr Pike', 'Little Bea', 'The sleepy guard', 'Nana Joy', 'A passing kid'];
+  // every clue: { kind, text, say, test(suspect) -> fits?, solid, icon }
+  function clueFor(kind, s, r, names) {
+    const hatWord = { cap: 'a CAP', beanie: 'a BEANIE', tophat: 'a TOP HAT' };
+    switch (kind) {
+      case 'shoes': return s.shoes === 'boots'
+        ? { kind, icon: 'boot', text: 'Muddy BOOT prints lead away.', wit: 'they wore BOOTS', test: x => x.shoes === 'boots' }
+        : { kind, icon: 'sneaker', text: 'SNEAKER prints were found by the door.', wit: 'they wore SNEAKERS', test: x => x.shoes === 'sneakers' };
+      case 'height': return s.tall
+        ? { kind, icon: 'ruler', text: 'It was on a high shelf. Only someone TALL could reach it.', wit: 'they were TALL', test: x => x.tall }
+        : { kind, icon: 'ruler', text: 'They squeezed through a tiny gap. They must be SHORT.', wit: 'they were SHORT', test: x => !x.tall };
+      case 'glasses': return s.glasses
+        ? { kind, icon: 'camera', text: 'The camera shows they wore GLASSES.', wit: 'they wore GLASSES', test: x => x.glasses }
+        : { kind, icon: 'camera', text: 'The camera shows NO glasses.', wit: 'they had NO glasses', test: x => !x.glasses };
+      case 'hat': return s.hat === 'none'
+        ? { kind, icon: 'camera', text: 'The camera shows NO hat.', wit: 'they had NO hat', test: x => x.hat === 'none' }
+        : r() < .5 ? { kind, icon: 'camera', text: 'The camera shows they wore a hat.', wit: 'they wore a hat', test: x => x.hat !== 'none' }
+          : { kind: 'hattype', icon: 'camera', text: 'The camera shows they wore ' + hatWord[s.hat] + '.', wit: 'they wore ' + hatWord[s.hat], test: x => x.hat === s.hat };
+      case 'shirt': {
+        if (r() < .5) return { kind, icon: 'thread', text: 'A ' + s.shirt.toUpperCase() + ' thread was caught on the gate.', wit: 'their shirt was ' + s.shirt.toUpperCase(), test: x => x.shirt === s.shirt };
+        const other = pickR(r, SHIRTS.filter(c => c !== s.shirt));
+        return { kind: 'shirtnot', icon: 'thread', text: 'Their shirt was NOT ' + other + '.', wit: 'their shirt was NOT ' + other, test: x => x.shirt !== other };
+      }
+    }
+  }
+  const SUSPECT_SPEC = [
+    { n: 3, solid: 2, shaky: 0 }, { n: 4, solid: 2, shaky: 0 }, { n: 4, solid: 3, shaky: 0 }, { n: 5, solid: 3, shaky: 0 },
+    { n: 5, solid: 3, shaky: 1 }, { n: 6, solid: 3, shaky: 1 }, { n: 6, solid: 4, shaky: 1 }, { n: 7, solid: 4, shaky: 1 },
+    { n: 8, solid: 4, shaky: 2 }, { n: 8, solid: 5, shaky: 2 }
+  ];
+  function makeCase(lv, seed) {
+    const sp = SUSPECT_SPEC[lv];
+    for (let tries = 0; tries < 2000; tries++) {
+      const r = rng(seed + tries * 7919);
+      const names = shuffleR(r, NAMES).slice(0, sp.n);
+      const seen = new Set(), sus = [];
+      while (sus.length < sp.n) {
+        const s = { name: names[sus.length], hat: pickR(r, HATS), glasses: r() < .4, shirt: pickR(r, SHIRTS), shoes: r() < .5 ? 'boots' : 'sneakers', tall: r() < .5, hair: pickR(r, ['#3b2a1a', '#c08a4e', '#e8c050', '#1d2340', '#b4472a']), skin: pickR(r, ['#f2c9a0', '#d9a074', '#a8704a', '#7a4d2f']) };
+        const k = [s.hat, s.glasses, s.shirt, s.shoes, s.tall].join();
+        if (seen.has(k)) continue;
+        seen.add(k); sus.push(s);
+      }
+      const culprit = Math.floor(r() * sp.n);
+      const c = sus[culprit];
+      // build solid clues one at a time; each must rule out someone still in the running
+      let left = sus.map((_, i) => i);
+      const solid = [];
+      const kinds = ['shoes', 'height', 'glasses', 'hat', 'shirt'];
+      let guard = 0;
+      while (left.length > 1 && guard++ < 60) {
+        let clue;
+        if (r() < .22 && left.length > 2) {
+          const who = pickR(r, left.filter(i => i !== culprit));
+          clue = { kind: 'alibi', icon: 'clock', text: sus[who].name + ' ' + pickR(r, ALIBIS) + '.', test: x => x !== sus[who], target: who };
+        } else {
+          const k = pickR(r, kinds.filter(k => !solid.some(s => s.kind === k || (k === 'hat' && s.kind === 'hattype') || (k === 'shirt' && s.kind === 'shirtnot'))));
+          if (!k) break;
+          clue = clueFor(k, c, r);
+        }
+        const after = left.filter(i => clue.test(sus[i]));
+        if (after.length === left.length || !after.includes(culprit)) continue;
+        // later levels: clues that rule out only a few at a time, so it takes careful thinking
+        if (lv >= 6 && left.length - after.length > Math.ceil(left.length / 2) && r() < .7) continue;
+        solid.push({ ...clue, solid: true });
+        left = after;
+      }
+      if (left.length !== 1 || solid.length !== sp.solid) continue;
+      for (let e = 0; e < (lv >= 7 ? 2 : lv >= 3 ? 1 : 0); e++) {
+        const k = pickR(r, kinds.filter(k => !solid.some(s => s.kind === k || (k === 'hat' && s.kind === 'hattype') || (k === 'shirt' && s.kind === 'shirtnot'))));
+        if (k) solid.push({ ...clueFor(k, c, r), solid: true, extra: true });
+      }
+      // shaky witness clues: might be right, might be wrong (half of them point the wrong way)
+      const shaky = [];
+      for (let i = 0; i < sp.shaky; i++) {
+        const lie = i === 0 ? r() < .6 : r() < .4;
+        const k = pickR(r, kinds);
+        let base;
+        if (lie) {
+          // describe someone else, in a way that would clear the real culprit if you trusted it
+          const other = pickR(r, sus.filter(x => x !== c));
+          base = clueFor(k, other, r);
+          if (base.test(c)) { i--; continue; }
+        } else base = clueFor(k, c, r);
+        const who = pickR(r, WITNESSES);
+        shaky.push({ ...base, kind: 'shaky', icon: 'witness', solid: false, lie, text: who + ' isn\'t sure, but thinks ' + base.wit + '.' });
+      }
+      // order: solid clues shuffled, shaky ones dropped in early so they can tempt you
+      const order = [...shuffleR(r, solid.filter(q => !q.extra)), ...solid.filter(q => q.extra)];
+      shaky.forEach(s => order.splice(Math.min(order.length - 1, 1 + Math.floor(r() * 2)), 0, s));
+      // how many clues you need to read before the solid ones prove who it was
+      let need = order.length;
+      for (let k = 1; k <= order.length; k++) {
+        const rem = sus.filter(x => order.slice(0, k).filter(q => q.solid).every(q => q.test(x)));
+        if (rem.length === 1) { need = k; break; }
+      }
+      const story = pickR(r, CASES);
+      return { story, suspects: sus, culprit, clues: order, need, sig: 'C' + lv + ':' + sus.map(s => s.name + [s.hat, s.glasses, s.shirt, s.shoes, s.tall].join('.')).join('/') + ':' + culprit };
+    }
+    throw new Error('no case ' + lv);
+  }
+
+  // ---------- sound and speech ----------
+  let audio = null, soundOn = true;
+  addEventListener('pointerdown', () => { try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch (_) { audio = null; } }, { once: true });
+  function beep(f, d = .1, type = 'triangle', v = .1) {
+    if (!soundOn || !audio) return;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type; o.frequency.value = f; g.gain.setValueAtTime(v, audio.currentTime); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + d);
+    o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + d);
+  }
+  const tune = (n, gap = 100) => n.forEach((f, i) => setTimeout(() => beep(f, .16, 'triangle', .14), i * gap));
+  let speech = '';
+  function say(text, force) { if (!force && !soundOn) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/[“”"]/g, '')); u.rate = .92; u.pitch = 1.08; speechSynthesis.speak(u); } catch (_) {} }
+  $('sound').addEventListener('click', () => { soundOn = !soundOn; $('sound').setAttribute('aria-pressed', soundOn); $('sound').setAttribute('aria-label', soundOn ? 'Sound on' : 'Sound off'); if (!soundOn) try { speechSynthesis.cancel(); } catch (_) {} });
+  $('hear').addEventListener('click', () => say(speech, true));
+
+  // ---------- pictures (all original) ----------
+  const HEX = { red: '#ef4444', blue: '#3b82f6', green: '#22a35a', yellow: '#f5c518', purple: '#8b5cf6', grey: '#c3cbdb' };
+  let uid = 0;
+  function shapePath(shape) {
+    if (shape === 'circle') return '<circle cx="20" cy="20" r="16"/>';
+    if (shape === 'square') return '<rect x="5" y="5" width="30" height="30" rx="3"/>';
+    if (shape === 'triangle') return '<path d="M20 4L37 34H3Z"/>';
+    if (shape === 'heart') return '<path d="M20 35C6 25 1 16 7 9c5-5 11-3 13 2 2-5 8-7 13-2 6 7 1 16-13 26Z"/>';
+    const pts = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 7.5 : 17; pts.push((20 + Math.cos(a) * rr).toFixed(1) + ' ' + (21 + Math.sin(a) * rr).toFixed(1)); }
+    return `<path d="M${pts.join('L')}Z"/>`;
+  }
+  function thingSvg(it) {
+    const id = 'c' + (uid++), sh = shapePath(it.shape), sc = it.size === 'small' ? .7 : 1;
+    let pat = '';
+    if (it.pattern === 'stripes') pat = [6, 13, 20, 27, 34].map(x => `<line x1="${x - 14}" y1="40" x2="${x + 14}" y2="0" stroke="#fff" stroke-width="3"/>`).join('');
+    if (it.pattern === 'dots') pat = [[12, 14], [26, 13], [19, 22], [12, 29], [27, 28]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" fill="#fff"/>`).join('');
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><defs><clipPath id="${id}">${sh}</clipPath></defs><g transform="translate(20 20) scale(${sc}) translate(-20 -20)"><g fill="${HEX[it.colour]}">${sh}</g><g clip-path="url(#${id})">${pat}</g><g fill="none" stroke="#1d2a3d" stroke-width="${2 / sc}">${sh}</g></g></svg>`;
+  }
+  const itemName = it => `${it.size} ${it.pattern === 'stripes' ? 'stripy ' : it.pattern === 'dots' ? 'spotty ' : ''}${it.colour} ${it.shape}`;
+  function atomIcon(id) {
+    if (HEX[id]) return `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15" fill="${HEX[id]}" stroke="#1d2a3d" stroke-width="2.5"/></svg>`;
+    if (R_SHAPES.includes(id)) return thingSvg({ shape: id, colour: 'grey', size: 'big', pattern: 'plain' });
+    if (id === 'big' || id === 'small') return thingSvg({ shape: 'square', colour: 'grey', size: id, pattern: 'plain' });
+    if (id === 'plain' || id === 'stripes' || id === 'dots') return thingSvg({ shape: 'circle', colour: 'grey', size: 'big', pattern: id });
+    if (id === 'corners') return thingSvg({ shape: 'triangle', colour: 'grey', size: 'big', pattern: 'plain' });
+    return '';
+  }
+  function ruleHtml(rule) {
+    return '<span class="rule">' + rule.parts.map(p => p.atom ? `<span class="atom">${atomIcon(p.atom)}${esc(atomById(p.atom).word)}</span>`
+      : p.op === '(' || p.op === ')' ? `<span class="op par">${p.op}</span>` : `<span class="op ${p.op}">${p.op}</span>`).join('') + '</span>';
+  }
+  // suspects: small pixel people built from their features
+  const HAT_COL = { cap: '#ef4444', beanie: '#8b5cf6', tophat: '#1d2a3d' };
+  function personSvg(s) {
+    const R = [];
+    const r = (x, y, w, h, c) => R.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`);
+    const legs = s.tall ? 7 : 3, shoeH = s.shoes === 'boots' ? 2 : 1;
+    const bottom = 30, shoeTop = bottom - shoeH, legTop = shoeTop - legs, bodyTop = legTop - 5, headTop = bodyTop - 5;
+    // shoes and legs
+    r(3, shoeTop, 3, shoeH, s.shoes === 'boots' ? '#6b4226' : '#ffffff'); r(7, shoeTop, 3, shoeH, s.shoes === 'boots' ? '#6b4226' : '#ffffff');
+    if (s.shoes !== 'boots') { r(3, bottom - 1, 3, 1, '#ffffff'); r(3, bottom, 3, .6, '#9aa6bb'); r(7, bottom, 3, .6, '#9aa6bb'); }
+    r(4, legTop, 2, legs, '#2c3e66'); r(7, legTop, 2, legs, '#2c3e66');
+    // body and arms
+    r(3, bodyTop, 7, 5, HEX[s.shirt]); r(2, bodyTop + 1, 1, 3, s.skin); r(10, bodyTop + 1, 1, 3, s.skin);
+    // head
+    r(3, headTop, 7, 5, s.skin);
+    r(3, headTop - 1, 7, 1, s.hair); r(3, headTop, 1, 2, s.hair); r(9, headTop, 1, 2, s.hair);
+    if (s.glasses) { r(3, headTop + 2, 7, 1, '#1d2a3d'); r(4, headTop + 2, 1, 1, '#9fd3ff'); r(7, headTop + 2, 1, 1, '#9fd3ff'); }
+    else { r(4, headTop + 2, 1, 1, '#1d2a3d'); r(8, headTop + 2, 1, 1, '#1d2a3d'); }
+    r(5, headTop + 4, 3, 1, '#b55a4a');
+    // hats
+    if (s.hat === 'cap') { r(3, headTop - 2, 7, 2, HAT_COL.cap); r(9, headTop - 1, 3, 1, HAT_COL.cap); }
+    if (s.hat === 'beanie') { r(3, headTop - 2, 7, 2, HAT_COL.beanie); r(5, headTop - 3, 3, 1, '#ffffff'); }
+    if (s.hat === 'tophat') { r(4, headTop - 5, 5, 4, HAT_COL.tophat); r(2, headTop - 1, 9, 1, HAT_COL.tophat); r(4, headTop - 2, 5, 1, '#ef4444'); }
+    return `<svg viewBox="0 -2 13 33" shape-rendering="crispEdges" aria-hidden="true">${R.join('')}</svg>`;
+  }
+  const CLUE_ICON = {
+    boot: '<svg viewBox="0 0 34 34" aria-hidden="true"><path d="M9 4h9v14l9 4v6H7z" fill="#6b4226" stroke="#1d2a3d" stroke-width="2"/></svg>',
+    sneaker: '<svg viewBox="0 0 34 34" aria-hidden="true"><path d="M4 16l9-6 6 6 10 3v7H4z" fill="#fff" stroke="#1d2a3d" stroke-width="2"/><path d="M4 26h25" stroke="#3b82f6" stroke-width="3"/></svg>',
+    ruler: '<svg viewBox="0 0 34 34" aria-hidden="true"><rect x="12" y="2" width="10" height="30" fill="#f5c518" stroke="#1d2a3d" stroke-width="2"/><path d="M12 8h5M12 14h4M12 20h5M12 26h4" stroke="#1d2a3d" stroke-width="2"/></svg>',
+    camera: '<svg viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="9" width="28" height="19" rx="3" fill="#c3cbdb" stroke="#1d2a3d" stroke-width="2"/><circle cx="17" cy="18" r="6" fill="#1f3a5f" stroke="#1d2a3d" stroke-width="2"/><rect x="11" y="5" width="9" height="5" fill="#1d2a3d"/></svg>',
+    thread: '<svg viewBox="0 0 34 34" aria-hidden="true"><path d="M4 28c6-4 2-12 9-14s8 8 14 4 2-12 4-14" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/></svg>',
+    clock: '<svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="13" fill="#fff" stroke="#1d2a3d" stroke-width="2.5"/><path d="M17 9v8l6 4" stroke="#1d2a3d" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>',
+    witness: '<svg viewBox="0 0 34 34" aria-hidden="true"><path d="M4 5h26v17H14l-7 6v-6H4z" fill="#fde7b0" stroke="#1d2a3d" stroke-width="2"/><text x="17" y="19" text-anchor="middle" font-size="14" font-weight="800" fill="#b45309">?</text></svg>'
+  };
+  function px(rows, pal, cls = '') {
+    let r = ''; rows.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) r += `<rect x="${x}" y="${y}" width="1.05" height="1.05" fill="${pal[ch]}"/>`; }));
+    return `<svg class="${cls}" viewBox="0 0 ${rows[0].length} ${rows.length}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;
+  }
+  const STAR_ON = px(['....y....', '...yyy...', 'yyyyyyyyy', '.yyyyyyy.', '..yyyyy..', '.yyy.yyy.', '.yy...yy.'], { y: '#f5b800' });
+  const STAR_OFF = px(['....y....', '...yyy...', 'yyyyyyyyy', '.yyyyyyy.', '..yyyyy..', '.yyy.yyy.', '.yy...yy.'], { y: '#d6dbe5' });
+  const LOCK = px(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kyyyyyyk', 'kyykkyyk', 'kyyyyyyk', 'kkkkkkkk'], { k: '#1d2a3d', y: '#f5c518' }, 'lock');
+  const TROPHY = px(['kkkkkkkkkk', 'kyyyyyyyyk', 'yyyybbyyyy', 'y.yybbyy.y', '.yyyyyyyy.', '..yyyyyy..', '...yyyy...', '....yy....', '...kyyk...', '..yyyyyy..'], { k: '#b7791f', y: '#f5c518', b: '#3b82f6' }, 'trophy');
+  const BADGE = '<svg class="badge" viewBox="0 0 64 64" aria-hidden="true"><circle cx="26" cy="26" r="17" fill="#d8ecff" stroke="#1f3a5f" stroke-width="6"/><path d="M38 38l16 16" stroke="#1f3a5f" stroke-width="9" stroke-linecap="round"/><path d="M18 21c2-5 7-7 11-6" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>';
+  const RULE_ICON = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="14" width="44" height="36" rx="4" fill="#c3cbdb" stroke="#fff" stroke-width="3"/><circle cx="24" cy="32" r="6" fill="#22a35a"/><circle cx="40" cy="32" r="6" fill="#ef4444"/><path d="M26 6h12v8H26z" fill="#f5c518"/></svg>';
+  const CASE_ICON = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="27" cy="27" r="15" fill="#d8ecff" stroke="#fff" stroke-width="5"/><path d="M38 38l14 14" stroke="#fff" stroke-width="7" stroke-linecap="round"/><text x="27" y="33" text-anchor="middle" font-size="17" font-weight="800" fill="#1f3a5f">?</text></svg>';
+
+  // ---------- per-player saves, and the puzzles each player has already seen ----------
+  const me = KBG.current();
+  let save = Object.assign({ rules: [], cases: [], endless: {}, seen: { rules: [], cases: [] } }, KBG.get('clueclub', {}));
+  save.seen = Object.assign({ rules: [], cases: [] }, save.seen);
+  function persist() {
+    KBG.set('clueclub', save);
+    KBG.setBest('clueclub', {
+      stars: ['rules', 'cases'].reduce((t, a) => t + save[a].reduce((s, v) => s + (v || 0), 0), 0),
+      levels: ['rules', 'cases'].reduce((t, a) => t + save[a].filter(Boolean).length, 0),
+      endless: Object.values(save.endless).reduce((t, v) => t + v, 0)
+    });
+  }
+  // make a puzzle this player hasn't seen before (a new random seed each time; try again if it's a repeat)
+  function freshPuzzle(area, lv, make) {
+    let P, seed;
+    for (let i = 0; i < 40; i++) { seed = freshSeed(); P = make(lv, seed); if (!save.seen[area].includes(P.sig)) break; }
+    save.seen[area].push(P.sig);
+    if (save.seen[area].length > 800) save.seen[area].splice(0, save.seen[area].length - 800);
+    persist();
+    return { P, seed };
+  }
+
+  // ---------- screens ----------
+  const AREAS = {
+    rules: { name: 'Rule Detective', blurb: 'The machine has a secret rule. Test things to find out what it is!', count: 10, icon: RULE_ICON, make: makeRule, build: buildRule },
+    cases: { name: 'Who Did It?', blurb: 'Read the clues, cross out suspects, and only trust solid evidence.', count: 10, icon: CASE_ICON, make: makeCase, build: buildCase }
+  };
+  let current = null, cleanup = null;
+  const screens = ['mapScreen', 'levelScreen', 'playScreen'];
+  function showScreen(id) { screens.forEach(s => $(s).hidden = s !== id); $(id).scrollTop = 0; }
+  const starsHtml = n => [0, 1, 2].map(i => i < n ? STAR_ON : STAR_OFF).join('');
+  function stopAll() { if (cleanup) { cleanup(); cleanup = null; } try { speechSynthesis.cancel(); } catch (_) {} }
+  function showMap() {
+    stopAll(); current = null;
+    $('title').textContent = 'Clue Club'; $('back').hidden = true; $('hear').hidden = true;
+    $('badge').innerHTML = BADGE;
+    $('whoami').innerHTML = KBG.avatarSvg(me.avatar) + '<span></span><a href="../">Change</a>';
+    $('whoami').querySelector('span').textContent = 'Playing as ' + me.name + ' ·';
+    const wrap = $('areas'); wrap.innerHTML = '';
+    for (const [key, a] of Object.entries(AREAS)) {
+      const stars = save[key].reduce((s, v) => s + (v || 0), 0), done = save[key].filter(Boolean).length;
+      const b = el('button', 'area'); b.type = 'button';
+      b.innerHTML = `<div class="art">${a.icon}</div><div><b>${a.name}</b><span>${a.blurb}</span><div class="prog">${STAR_ON}<span>${stars} / ${a.count * 3}</span><span>&middot; ${done} of ${a.count} levels</span></div></div>`;
+      b.addEventListener('click', () => { beep(523, .08); showLevels(key); });
+      wrap.appendChild(b);
+    }
+    showScreen('mapScreen');
+  }
+  function showLevels(key) {
+    stopAll();
+    const a = AREAS[key]; current = { area: key, lv: null };
+    $('title').textContent = a.name; $('back').hidden = false; $('hear').hidden = true;
+    const wrap = $('levels'); wrap.innerHTML = '';
+    const firstOpen = save[key].filter(Boolean).length;
+    for (let i = 0; i < a.count; i++) {
+      const got = save[key][i] || 0, open = i <= firstOpen;
+      const b = el('button', 'lvl' + (i === firstOpen ? ' next' : '')); b.type = 'button'; b.disabled = !open;
+      b.setAttribute('aria-label', 'Level ' + (i + 1) + (open ? ', ' + got + ' stars' : ', locked'));
+      b.innerHTML = open ? `<span>${i + 1}</span><span class="stars">${starsHtml(got)}</span>` : LOCK;
+      b.addEventListener('click', () => startLevel(key, i));
+      wrap.appendChild(b);
+    }
+    const finished = firstOpen >= a.count, solved = save.endless[key] || 0;
+    const e = el('button', 'lvl endless'); e.type = 'button'; e.disabled = !finished;
+    e.innerHTML = finished ? `<span class="inf">&infin;</span><span class="small">${solved} solved</span>` : LOCK + '<span class="small">Endless</span>';
+    e.setAttribute('aria-label', finished ? 'Endless, ' + solved + ' solved' : 'Endless, locked until every level is done');
+    e.addEventListener('click', () => startEndless(key));
+    wrap.appendChild(e);
+    $('areaBlurb').textContent = a.blurb + ' Every case is new.';
+    showScreen('levelScreen');
+  }
+  function startLevel(key, lv, opts = {}) {
+    stopAll();
+    let P, seed = opts.seed;
+    if (seed != null) P = AREAS[key].make(lv, seed);
+    else ({ P, seed } = freshPuzzle(key, lv, AREAS[key].make));
+    current = { area: key, lv, seed, endless: !!opts.endless };
+    window.__cc.cur = P;
+    $('title').textContent = AREAS[key].name + ' · ' + (opts.endless ? 'Endless' : lv + 1);
+    $('back').hidden = false; $('hear').hidden = false;
+    $('stage').innerHTML = ''; $('status').innerHTML = ''; $('actions').innerHTML = ''; setMsg('');
+    showScreen('playScreen');
+    AREAS[key].build(P, lv);
+    setTimeout(() => say(speech), 350);
+  }
+  function startEndless(key) { const n = AREAS[key].count; startLevel(key, n - 3 + Math.floor(Math.random() * 3), { endless: true }); }
+  function setQ(text, spoken) { $('q').textContent = text; speech = spoken || text; }
+  function setMsg(text, kind, speak) { $('msg').textContent = text; $('msg').className = 'msg' + (kind ? ' ' + kind : ''); if (speak && text) say(text); }
+  function action(label, fn, cls = '') { const b = el('button', 'btn ' + cls, label); b.type = 'button'; b.addEventListener('click', fn); $('actions').appendChild(b); return b; }
+  function win(stars, title, text) {
+    const { area, lv, seed, endless } = current, a = AREAS[area];
+    const btns = $('winBtns'); btns.innerHTML = '';
+    const mk = (label, fn, cls) => { const b = el('button', 'btn ' + (cls || ''), label); b.type = 'button'; b.addEventListener('click', () => { $('overlay').hidden = true; fn(); }); btns.appendChild(b); return b; };
+    KBG.record('clueclub-cases', { stars });
+    if (endless) {
+      save.endless[area] = (save.endless[area] || 0) + 1; persist();
+      tune([523, 659, 784, 1047]);
+      $('winArt').innerHTML = `<div class="bigstars">${starsHtml(stars)}</div>`;
+      $('winTitle').textContent = title; $('winText').textContent = text + ' Endless solved: ' + save.endless[area] + '.';
+      mk('Back', () => showLevels(area), 'alt'); const nx = mk('Next case', () => startEndless(area));
+      $('overlay').hidden = false; nx.focus(); say(title + ' ' + text); return;
+    }
+    save[area][lv] = Math.max(save[area][lv] || 0, stars); persist();
+    const areaDone = save[area].filter(Boolean).length === a.count && lv === a.count - 1;
+    tune(stars === 3 ? [523, 659, 784, 1047, 1319] : [523, 659, 784, 1047]);
+    $('winArt').innerHTML = areaDone ? TROPHY : `<div class="bigstars">${starsHtml(stars)}</div>`;
+    $('winTitle').textContent = areaDone ? 'You finished ' + a.name.replace(/\?$/, '') + '!' : title;
+    $('winText').textContent = text;
+    if (stars < 3) mk('Try this one again', () => startLevel(area, lv, { seed }), 'alt');
+    mk('New case', () => startLevel(area, lv), 'alt');
+    const first = lv + 1 < a.count ? mk('Next level', () => startLevel(area, lv + 1)) : mk('Back to the club', showMap);
+    $('overlay').hidden = false; first.focus();
+    say(title + ' ' + text);
+  }
+  $('back').addEventListener('click', () => { stopAll(); if (current && current.lv != null) showLevels(current.area); else showMap(); });
+
+  // ======================================================================
+  // RULE DETECTIVE
+  // ======================================================================
+  function buildRule(R, lv) {
+    const { truth, examples, shelf, options, minTests } = R;
+    let tested = [], wrong = 0, hinted = false, done = false, out = new Set(), hintId = -1;
+    setQ('What is the secret rule?', 'Some things go through the machine and some don\'t. Tap things on the shelf to test them. When you are sure, pick the rule. Try to work it out with only ' + minTests + (minTests === 1 ? ' test.' : ' tests.') + ' The rules are: ' + options.map(o => o.say).join('. ') + '.');
+    const testsChip = el('div', 'chip'), goalChip = el('div', 'chip goal', `<span>Best: ${minTests} ${minTests === 1 ? 'test' : 'tests'}</span>`);
+    $('status').append(testsChip, goalChip);
+    const machine = el('div', 'machine');
+    const yesBin = el('div', 'bin yes', '<h4>&#10003; Goes through</h4><div class="items"></div>'), noBin = el('div', 'bin no', '<h4>&#10007; Stopped</h4><div class="items"></div>');
+    machine.append(yesBin, noBin);
+    const lamp = el('div', 'lamp', '<i class="y"></i><span>Rule Machine</span><i class="n"></i>');
+    const shelfBox = el('div', 'shelf');
+    const opts = el('div', 'options');
+    $('stage').append(el('p', 'label', 'The machine so far'), machine, lamp, el('p', 'label', 'Test something from the shelf'), shelfBox, el('p', 'label', 'Which rule is it?'), opts);
+    const evidence = () => [...examples, ...tested.map(it => ({ it, ok: truth.test(it), tested: true }))];
+    function draw(newId) {
+      for (const [bin, ok] of [[yesBin, true], [noBin, false]]) {
+        const box = bin.querySelector('.items'); box.innerHTML = '';
+        evidence().filter(e => e.ok === ok).forEach(e => { const t = el('span', 'thing' + (e.tested ? ' tested' : '') + (e.it.id === newId ? ' new' : ''), thingSvg(e.it)); t.title = itemName(e.it); t.setAttribute('aria-label', itemName(e.it)); box.appendChild(t); });
+      }
+      shelfBox.innerHTML = '';
+      shelf.forEach(it => {
+        const b = el('button', it.id === hintId ? 'hint' : '', thingSvg(it)); b.type = 'button';
+        b.disabled = done || tested.includes(it);
+        b.setAttribute('aria-label', 'Test the ' + itemName(it));
+        b.addEventListener('click', () => test(it));
+        shelfBox.appendChild(b);
+      });
+      opts.innerHTML = '';
+      options.forEach((o, i) => {
+        const row = el('div', 'option' + (out.has(o.id) ? ' out' : ''), ruleHtml(o));
+        const pick = el('button', 'btn', 'This one!'); pick.type = 'button'; pick.disabled = done || out.has(o.id);
+        pick.setAttribute('aria-label', 'The rule is ' + o.say);
+        pick.addEventListener('click', () => choose(o, row));
+        row.appendChild(pick); opts.appendChild(row);
+      });
+      testsChip.innerHTML = `<span>Tests: ${tested.length}</span>`;
+    }
+    function test(it) {
+      if (done || tested.includes(it)) return;
+      tested.push(it); hintId = -1;
+      const ok = truth.test(it);
+      lamp.querySelectorAll('i').forEach(i => i.classList.remove('on'));
+      lamp.querySelector(ok ? 'i.y' : 'i.n').classList.add('on');
+      ok ? tune([660, 880], 70) : beep(200, .2, 'square', .06);
+      setMsg('The ' + itemName(it) + (ok ? ' goes through!' : ' is stopped.'), ok ? 'good' : 'bad', true);
+      draw(it.id);
+    }
+    function choose(o, row) {
+      if (done) return;
+      const ev = evidence();
+      if (o === truth) {
+        done = true; draw();
+        const stillFit = options.filter(x => x !== truth && !out.has(x.id) && ev.every(e => x.test(e.it) === e.ok));
+        let stars, title = 'Rule cracked!', text;
+        if (stillFit.length) { stars = 1; title = 'Right, but it was a guess!'; text = 'Other rules still matched everything you saw. Real detectives test until only one rule fits.'; }
+        else {
+          stars = wrong ? 1 : tested.length <= minTests ? 3 : tested.length <= minTests + 2 ? 2 : 1;
+          if (hinted) stars = Math.min(2, stars);
+          text = 'The rule was: ' + truth.say + '. You used ' + tested.length + (tested.length === 1 ? ' test' : ' tests') + (tested.length <= minTests ? ', as few as possible!' : '. The fewest is ' + minTests + '.');
+        }
+        setTimeout(() => win(stars, title, text), 350);
+        return;
+      }
+      wrong++; out.add(o.id);
+      row.classList.add('shake');
+      beep(150, .3, 'sawtooth', .05);
+      const proof = ev.find(e => o.test(e.it) !== e.ok);
+      if (proof) setMsg('That can\'t be it! The ' + itemName(proof.it) + (proof.ok ? ' went through' : ' was stopped') + ', but that rule says it ' + (proof.ok ? 'would be stopped.' : 'would go through.'), 'bad', true);
+      else setMsg('Not that one! Nothing you tested proved it wrong yet, so it was a guess. Test more before deciding.', 'bad', true);
+      setTimeout(draw, 320);
+    }
+    function hint() {
+      if (done) return;
+      const ev = evidence();
+      const alive = options.filter(o => !out.has(o.id) && ev.every(e => o.test(e.it) === e.ok));
+      if (alive.length === 1) { hinted = true; setMsg('Only one rule still fits everything you have seen. Which one?', '', true); return; }
+      // the untested thing that splits the remaining rules most evenly
+      let best = null, bestScore = -1;
+      for (const it of shelf) {
+        if (tested.includes(it)) continue;
+        const yes = alive.filter(o => o.test(it)).length, score = Math.min(yes, alive.length - yes);
+        if (score > bestScore) { best = it; bestScore = score; }
+      }
+      hinted = true;
+      if (best && bestScore > 0) { hintId = best.id; draw(); setMsg('Test the glowing ' + itemName(best) + '. Some rules say it goes through, some say it stops! Hints make the most stars 2.', '', true); }
+      else setMsg('Look at the machine: which rules do NOT match something that went through or got stopped?', '', true);
+    }
+    action('Hint', hint, 'alt');
+    draw();
+  }
+
+  // ======================================================================
+  // WHO DID IT?
+  // ======================================================================
+  function buildCase(C, lv) {
+    const { story, suspects, culprit, clues, need } = C;
+    let shown = 1, crossed = new Set(), wrong = 0, hinted = false, done = false, hintSus = -1, hlClue = -1;
+    const shakyCount = clues.filter(c => !c.solid).length;
+    setQ(story, story + ' Read the clues and tap a suspect to cross them out. When only one is left, accuse them!' + (shakyCount ? ' Careful: some witnesses are not sure, and they might be wrong.' : ''));
+    const clueChip = el('div', 'chip'), susChip = el('div', 'chip goal');
+    $('status').append(clueChip, susChip);
+    const grid = el('div', 'suspects'), book = el('div', 'notebook');
+    $('stage').append(el('div', 'case', esc(story)), el('p', 'label', 'Suspects (tap to cross out)'), grid, el('p', 'label', 'Clues'), book);
+    const nextBtn = action('Next clue', () => { if (done || shown >= clues.length) return; shown++; hlClue = -1; beep(700, .06); draw(true); say(clueSay(clues[shown - 1])); });
+    const accuseBtn = action('Accuse!', accuse);
+    action('Hint', hint, 'alt');
+    const clueSay = c => (c.solid ? '' : 'Not sure: ') + c.text;
+    function draw(newClue) {
+      grid.innerHTML = '';
+      suspects.forEach((s, i) => {
+        const b = el('button', 'sus' + (crossed.has(i) ? ' out' : '') + (i === hintSus ? ' hint' : ''), personSvg(s) + `<b>${esc(s.name)}</b>`);
+        b.type = 'button';
+        const looks = [s.tall ? 'tall' : 'short', s.hat === 'none' ? 'no hat' : s.hat === 'tophat' ? 'top hat' : s.hat, s.glasses ? 'glasses' : 'no glasses', s.shirt + ' shirt', s.shoes].join(', ');
+        b.setAttribute('aria-label', s.name + ': ' + looks + (crossed.has(i) ? '. Crossed out' : ''));
+        b.addEventListener('click', () => { if (done) return; crossed.has(i) ? crossed.delete(i) : crossed.add(i); hintSus = -1; beep(crossed.has(i) ? 300 : 500, .05); draw(); });
+        grid.appendChild(b);
+      });
+      book.innerHTML = '';
+      clues.slice(0, shown).forEach((c, i) => {
+        const card = el('div', 'clue' + (c.solid ? '' : ' shaky') + (newClue && i === shown - 1 ? ' new' : '') + (i === hlClue ? ' hl' : ''), CLUE_ICON[c.icon] + `<span>${esc(c.text)}${c.solid ? '' : '<span class="tag">Not sure!</span>'}</span>`);
+        book.appendChild(card);
+      });
+      const left = suspects.length - crossed.size;
+      clueChip.innerHTML = `<span>Clues: ${shown} of ${clues.length}</span>`;
+      susChip.innerHTML = `<span>${left} ${left === 1 ? 'suspect' : 'suspects'} left</span>`;
+      nextBtn.disabled = done || shown >= clues.length;
+      nextBtn.textContent = shown >= clues.length ? 'No more clues' : 'Next clue';
+      const one = left === 1 ? suspects.findIndex((_, i) => !crossed.has(i)) : -1;
+      accuseBtn.disabled = done || one < 0;
+      accuseBtn.textContent = one >= 0 ? 'Accuse ' + suspects[one].name + '!' : 'Accuse!';
+      speech = story + ' Clues: ' + clues.slice(0, shown).map(clueSay).join(' ');
+    }
+    const solidSoFar = () => clues.slice(0, shown).filter(c => c.solid);
+    function accuse() {
+      if (done) return;
+      const pick = suspects.findIndex((_, i) => !crossed.has(i));
+      if (pick < 0 || crossed.size !== suspects.length - 1) return;
+      const proven = suspects.filter(s => solidSoFar().every(c => c.test(s)));
+      if (pick === culprit) {
+        done = true; draw();
+        let stars, title = 'Case closed!', text;
+        if (proven.length > 1) { stars = 1; title = 'Right, but it was a guess!'; text = 'It was ' + suspects[culprit].name + ', but the sure clues didn\'t prove it yet. Read more clues before you accuse.'; }
+        else {
+          stars = wrong ? 1 : shown <= need ? 3 : 2;
+          if (hinted) stars = Math.min(2, stars);
+          text = 'It was ' + suspects[culprit].name + '! ' + (shown <= need ? 'You solved it as soon as the clues proved it.' : 'You could have solved it with ' + need + (need === 1 ? ' clue.' : ' clues.'));
+        }
+        tune([523, 659, 784]);
+        setTimeout(() => win(stars, title, text), 400);
+        return;
+      }
+      wrong++;
+      beep(150, .35, 'sawtooth', .05);
+      grid.children[pick].classList.add('shake');
+      const s = suspects[pick];
+      const against = clues.findIndex((c, i) => i < shown && c.solid && !c.test(s));
+      const fooled = clues.findIndex((c, i) => i < shown && !c.solid && !c.test(suspects[culprit]));
+      if (against >= 0) { hlClue = against; setMsg('It can\'t be ' + s.name + '! Look at this clue: ' + clues[against].text, 'bad', true); }
+      else if (fooled >= 0 && crossed.has(culprit)) { hlClue = fooled; setMsg('Careful! You trusted a witness who wasn\'t sure, and that clue was wrong. Only trust the sure clues!', 'bad', true); }
+      else setMsg('Not ' + s.name + '! The sure clues don\'t point to one person yet. Read another clue.', 'bad', true);
+      setTimeout(draw, 320);
+    }
+    function hint() {
+      if (done) return;
+      hinted = true;
+      // someone still in play that a sure clue already rules out
+      for (let i = 0; i < suspects.length; i++) {
+        if (crossed.has(i)) continue;
+        const c = clues.findIndex((q, k) => k < shown && q.solid && !q.test(suspects[i]));
+        if (c >= 0) { hintSus = i; hlClue = c; draw(); setMsg('Look at ' + suspects[i].name + ' and the glowing clue. Do they match? Hints make the most stars 2.', '', true); return; }
+      }
+      if (crossed.has(culprit)) { hintSus = culprit; draw(); setMsg('You crossed out someone the sure clues don\'t rule out. Did a "not sure" clue fool you?', '', true); return; }
+      setMsg(shown < clues.length ? 'The clues so far can\'t rule anyone else out. Read the next clue!' : 'Check each suspect against every sure clue.', '', true);
+    }
+    draw();
+  }
+
+  // ---------- go ----------
+  window.__cc = { makeRule, makeCase, startLevel, AREAS, R_ITEMS, get save() { return save; } };
+  showMap();
+  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}));
+
+})();
+</script>
+</body>
+</html>

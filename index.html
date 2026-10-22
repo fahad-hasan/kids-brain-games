@@ -250,6 +250,22 @@ const GAMES = [
       return { played: (s.games || 0) > 0, games: s.games || 0, best, text: `Best ${best} moves · ${s.games || 0} ${s.games === 1 ? 'game' : 'games'}` + (s.perfect ? ` · ${s.perfect} perfect` : '') };
     },
     board: [['Flip best moves', st => st.best, 'low'], ['Flip games', st => st.games]]
+  },
+  {
+    slug: 'clue-club',
+    title: 'Clue Club',
+    blurb: 'Crack the secret rule of the Rule Machine by testing ideas, and solve mysteries by trusting only solid evidence. A brand-new case every time.',
+    skills: ['Critical thinking', 'Testing ideas', 'Weighing evidence'],
+    accent: '#f5c518', accentDark: '#1f3a5f',
+    stats: id => {
+      const save = KBG.get('clueclub', {}, id);
+      const areas = ['rules', 'cases'];
+      const stars = areas.reduce((t, a) => t + (save[a] || []).reduce((s, v) => s + (v || 0), 0), 0);
+      const levels = areas.reduce((t, a) => t + (save[a] || []).filter(Boolean).length, 0);
+      const endless = Object.values(save.endless || {}).reduce((t, v) => t + v, 0);
+      return { played: levels > 0, stars, levels, endless, text: `${stars} / 60 stars · ${levels} of 20 levels` + (endless ? ` · ${endless} endless` : '') };
+    },
+    board: [['Clue stars', st => st.stars], ['Clue endless', st => st.endless]]
   }
 ];
 
