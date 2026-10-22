@@ -807,13 +807,14 @@ body.farm { background: var(--sky); }
       if (t === 'L') { msg('Too hot! Lava can\'t be dug. Find another way.'); beep(120, .2); return; }
       if (t === 'M') { msg('Too strong! Metal can\'t be dug. Find another way.'); beep(120, .2); return; }
       path = null;
+      // one tap digs the whole block and uses all the hits it needs (dirt 1, stone 2, dark rock 3)
       if (hits[y][x] > 0) {
-        if (energy <= 0) return;
-        hits[y][x]--; energy--; used++;
+        const need = hits[y][x];
+        if (energy < need) { msg('That block needs ' + need + ' hits, but you only have ' + energy + ' left.'); beep(150, .15); return; }
+        hits[y][x] = 0; energy -= need; used += need;
+        grid[y][x] = y === 0 ? 'A' : 'E';
         c.classList.remove('hit'); void c.offsetWidth; c.classList.add('hit');
-        beep(hits[y][x] ? 220 : 330, .07, 'square', .07);
-        if (hits[y][x] === 0) grid[y][x] = y === 0 ? 'A' : 'E';
-        else { draw(); checkStuck(); return; }
+        for (let k = 0; k < need; k++) setTimeout(() => beep(k === need - 1 ? 330 : 220, .07, 'square', .07), k * 90);
       }
       pos = [x, y]; beep(440, .04, 'sine', .05);
       if (isGem(x, y)) {
