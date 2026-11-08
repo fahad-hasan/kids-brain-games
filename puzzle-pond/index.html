@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Puzzle Pond</title>
+<meta name="description" content="A fishing game where every catch is a puzzle: time your drop, weigh the fish and steer the hook through the currents.">
+<meta name="theme-color" content="#0b4f6c">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Puzzle Pond">
+<link rel="preload" href="../fonts/baloo2-800.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: "Baloo 2"; font-weight: 600; font-display: swap; src: url("../fonts/baloo2-600.woff2") format("woff2"); }
+@font-face { font-family: "Baloo 2"; font-weight: 800; font-display: swap; src: url("../fonts/baloo2-800.woff2") format("woff2"); }
+
+/* Layout: a lakeside dock. Deep-water top band, sandy wooden page, and the lake itself as the puzzle board.
+   Each puzzle stacks: the question, the counters, the lake, the controls. */
+:root {
+  --deep: #0b4f6c;
+  --deep-2: #136f93;
+  --sky: #bfe8ff;
+  --water: #2a9fd6;
+  --water-2: #1677ad;
+  --sand: #fff3d6;
+  --plank: #f3dfb4;
+  --ink: #1b2b3a;
+  --muted: #5b6b78;
+  --card: #ffffff;
+  --float: #ff6b4a;
+  --gold: #ffc93c;
+  --yes: #2f9e5a;
+  --no: #d64545;
+  --font: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: light;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: 100%;
+  background: var(--deep);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { height: 100%; }
+body {
+  margin: 0; height: 100%; color: var(--ink); font-family: var(--font); font-weight: 600; font-size: 1.05rem;
+  background: var(--sand);
+  overflow: hidden; touch-action: manipulation; -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+.app { height: 100%; display: flex; flex-direction: column; }
+.top { display: flex; align-items: center; gap: 8px; background: var(--deep); color: #fff; padding-block: 10px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.top h1 { flex: 1; min-width: 0; margin: 0; font-size: clamp(1.2rem, 5vw, 1.6rem); font-weight: 800; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ibtn { flex: none; width: 46px; height: 46px; display: grid; place-items: center; background: var(--deep-2); border: 2px solid rgba(255,255,255,.25); border-radius: 12px; color: #fff; cursor: pointer; text-decoration: none; padding: 0; }
+.ibtn svg { width: 24px; height: 24px; }
+#sound .mute, #sound[aria-pressed="false"] .waves { display: none; }
+#sound[aria-pressed="false"] .mute { display: inline; }
+.ibtn:focus-visible, .btn:focus-visible, button:focus-visible { outline: 4px solid var(--gold); outline-offset: 2px; }
+
+.screen {
+  flex: 1; min-height: 0; overflow-y: auto;
+  background: repeating-linear-gradient(90deg, var(--sand) 0 118px, #f4e6c4 118px 120px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 26px;
+}
+.col { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+#stage { width: 100%; }
+
+.hero { text-align: center; }
+.hero svg.badge { width: 110px; height: 72px; }
+.hero h2 { margin: 2px 0 0; font-size: clamp(2.6rem, 12vw, 3.8rem); line-height: 1; font-weight: 800; color: var(--deep); }
+.hero h2 span { color: var(--water-2); }
+.hero p { margin: 8px auto 0; max-width: 32ch; }
+.whoami { display: flex; justify-content: center; align-items: center; gap: 8px; font-weight: 800; color: var(--muted); }
+.whoami svg { width: 26px; height: 26px; }
+.whoami a { color: var(--ink); }
+.areas { display: grid; gap: 14px; width: 100%; }
+.area { display: grid; grid-template-columns: 80px 1fr; gap: 14px; align-items: center; padding: 14px; text-align: left; cursor: pointer; background: var(--card); border: 2px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink); }
+.area:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.area .art { width: 80px; height: 80px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(var(--sky) 0 30%, var(--water) 30%); overflow: hidden; }
+.area .art svg { width: 70px; height: 70px; }
+.area b { display: block; font-size: 1.45rem; line-height: 1.1; }
+.area span { display: block; color: var(--muted); font-size: .98rem; }
+.area .prog { margin-top: 6px; display: flex; align-items: center; gap: 6px; font-weight: 800; color: var(--ink); }
+.area .prog svg { width: 20px; height: 20px; }
+
+.blurb { margin: 0; text-align: center; font-size: clamp(1.2rem, 4.6vw, 1.45rem); font-weight: 800; line-height: 1.2; text-wrap: balance; }
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 12px; width: 100%; }
+.lvl { aspect-ratio: 1; max-width: 100%; border: 2px solid var(--ink); border-radius: 50%; background: var(--card); box-shadow: 0 3px 0 var(--ink); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; }
+.lvl:disabled { opacity: .45; cursor: default; }
+.lvl.next { background: var(--gold); }
+.lvl .stars { display: flex; gap: 1px; } .lvl .stars svg { width: 17px; height: 17px; }
+.lvl svg.lock { width: 26px; height: 26px; }
+.lvl.endless { grid-column: span 2; aspect-ratio: auto; min-height: 84px; flex-direction: row; gap: 12px; border-radius: 999px; }
+.lvl .inf { font-size: 2.4rem; line-height: 1; color: var(--deep-2); }
+.lvl .small { font-size: 1rem; }
+
+.q { margin: 0; text-align: center; font-size: clamp(1.25rem, 5vw, 1.7rem); font-weight: 800; line-height: 1.15; text-wrap: balance; }
+.status { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 1px 12px; font-weight: 800; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.chip.goal { background: var(--gold); }
+.msg { min-height: 1.5em; text-align: center; font-weight: 800; max-width: 36ch; text-wrap: balance; }
+.msg.bad { color: var(--no); } .msg.good { color: var(--yes); }
+.row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.btn { border: 2px solid var(--ink); border-radius: 12px; cursor: pointer; padding: 6px 18px; font-size: 1.12rem; font-weight: 800; background: var(--gold); box-shadow: 0 3px 0 var(--ink); }
+.btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.btn.alt { background: var(--card); }
+.btn.go { background: var(--float); color: #fff; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.hint { outline: 4px solid var(--gold); box-shadow: 0 0 16px #e8a800; }
+.label { font-size: .82rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0; align-self: flex-start; }
+
+.overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(10, 40, 60, .55); padding: 20px; }
+.win { width: min(390px, 100%); text-align: center; padding: 22px 18px 20px; background: var(--card); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 6px 0 var(--ink); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.win h2 { margin: 0; font-size: 2rem; line-height: 1.05; }
+.win p { margin: 0; font-size: 1.08rem; max-width: 30ch; }
+.bigstars { display: flex; gap: 6px; }
+.bigstars svg { width: 54px; height: 54px; animation: pop .45s backwards; }
+.bigstars svg:nth-child(2) { animation-delay: .15s; } .bigstars svg:nth-child(3) { animation-delay: .3s; }
+.trophy { width: 100px; height: 100px; animation: pop .5s; }
+@keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+@keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@keyframes bob { 50% { transform: translateY(-3%); } }
+.shake { animation: shake .3s; }
+
+/* THE LAKE BOARD (used by Gold Fish Drop and Current Maze) */
+.lake { position: relative; width: 100%; margin: 0 auto; border: 3px solid var(--ink); border-radius: 14px; overflow: hidden;
+  background:
+    linear-gradient(var(--sky) 0 calc(100% / var(--h)), transparent 0),
+    linear-gradient(#5cc2f0, var(--water) 30%, var(--water-2));
+}
+.lake .grid { position: absolute; inset: calc(100% / var(--h)) 0 0 0;
+  background-image: linear-gradient(90deg, rgba(255,255,255,.13) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.13) 1px, transparent 1px);
+  background-size: calc(100% / var(--w)) calc(100% / (var(--h) - 1)); }
+.lake .surf { position: absolute; left: 0; right: 0; top: calc(100% / var(--h) - 4px); height: 8px; background: repeating-linear-gradient(90deg, #e9f8ff 0 10px, #8fd6f5 10px 20px); opacity: .8; }
+.lake .it { position: absolute; width: calc(100% / var(--w)); height: calc(100% / var(--h)); display: grid; place-items: center; padding: 2px; transition: left .28s linear; }
+.lake .it svg { width: 100%; height: 100%; }
+.lake .it.noanim { transition: none; }
+.lake .boat { z-index: 3; pointer-events: none; animation: bob 1.6s ease-in-out infinite; }
+.lake svg.line { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+.lake .cell { position: absolute; width: calc(100% / var(--w)); height: calc(100% / var(--h)); padding: 2px; border: 0; background: none; display: grid; place-items: center; }
+.lake .cell svg { width: 100%; height: 100%; }
+.lake button.cell { cursor: pointer; }
+.lake button.cell.cur { border-radius: 10px; }
+.lake button.cell.cur::before { content: ""; position: absolute; inset: 6%; border-radius: 10px; background: rgba(255,255,255,.28); border: 2px solid rgba(255,255,255,.75); }
+.lake button.cell.cur.flipped::before { background: rgba(255, 201, 60, .55); border-color: #fff3c4; }
+.lake button.cell.cur svg { position: relative; }
+.lake .cell.hint::before, .lake .it.hint { outline: 4px solid var(--gold); outline-offset: -4px; border-radius: 10px; box-shadow: 0 0 18px #ffd34d inset; }
+.lake .skybtn { position: absolute; top: 0; height: calc(100% / var(--h)); width: calc(100% / var(--w)); border: 0; background: none; cursor: pointer; z-index: 1; }
+.pad { display: grid; grid-template-columns: repeat(4, auto); gap: 8px; justify-content: center; }
+.pad .btn { min-width: 70px; padding: 6px 10px; display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.pad .btn svg { width: 26px; height: 26px; }
+.pad .btn small { font-size: .85rem; }
+.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; font-size: .92rem; color: var(--muted); font-weight: 800; }
+.legend span { display: inline-flex; align-items: center; gap: 4px; }
+.legend svg { width: 26px; height: 26px; }
+
+/* FISH MARKET */
+.cats { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.bucket { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border: 3px solid var(--ink); border-radius: 14px; background: var(--card); cursor: pointer; text-align: center; }
+.bucket.sel { box-shadow: 0 0 0 4px var(--gold); background: #fffbea; }
+.bucket .who { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+.bucket .who svg { width: 46px; height: 46px; }
+.bucket .order { font-size: 1.05rem; line-height: 1.1; }
+.bucket .order b { font-size: 1.35rem; }
+.bucket .total { font-weight: 800; font-size: 1.1rem; padding: 0 10px; border-radius: 999px; background: #eef4f8; font-variant-numeric: tabular-nums; }
+.bucket .total.ok { background: #c9f0d6; color: #17643a; } .bucket .total.over { background: #f9d0d0; color: #9c1f1f; }
+.bucket .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; min-height: 58px; width: 100%; padding: 4px; border-radius: 10px; background: repeating-linear-gradient(45deg, #e8f4fb 0 8px, #dcedf7 8px 16px); }
+.pond { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 12px 8px; min-height: 92px; border: 3px solid var(--ink); border-radius: 50% / 28%; background: linear-gradient(#5cc2f0, var(--water-2)); }
+.fishbtn { position: relative; width: 74px; height: 58px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.fishbtn svg { width: 100%; height: 100%; overflow: visible; }
+.fishbtn .kg { position: absolute; left: 50%; top: 50%; transform: translate(-62%, -50%); min-width: 30px; height: 30px; padding: 0 4px; border-radius: 999px; display: grid; place-items: center; background: #fff; border: 2px solid var(--ink); font-weight: 800; font-size: 1.05rem; line-height: 1; }
+.tray .fishbtn { width: 60px; height: 48px; }
+.tray .fishbtn .kg { min-width: 26px; height: 26px; font-size: .95rem; }
+.fishbtn.locked .kg { background: var(--gold); }
+.fishbtn.hint { filter: drop-shadow(0 0 8px #ffd34d); }
+.fishbtn.new { animation: pop .3s; }
+@media (prefers-reduced-motion: reduce) { .bigstars svg, .trophy, .shake, .fishbtn.new, .lake .boat { animation: none; } .lake .it { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="ibtn" id="back" type="button" aria-label="Back" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 4L2 12l8 8v-5h12V9H10z"/></svg></button>
+    <h1 id="title">Puzzle Pond</h1>
+    <button class="ibtn" id="hear" type="button" aria-label="Read it to me" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 4h18v12H9l-5 4v-4H3z"/><path fill="none" stroke="#0b4f6c" stroke-width="2" stroke-linecap="round" d="M7 8.5h10M7 12h6"/></svg></button>
+    <button class="ibtn" id="sound" type="button" aria-pressed="true" aria-label="Sound on"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z"/><path class="waves" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/><path class="mute" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M16 9l6 6M22 9l-6 6"/></svg></button>
+    <a class="ibtn" href="../" aria-label="All games"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></a>
+  </header>
+
+  <section class="screen" id="mapScreen">
+    <div class="col">
+      <div class="hero">
+        <span id="badge"></span>
+        <h2>Puzzle <span>Pond</span></h2>
+        <p>Every catch is a puzzle. Think first, then fish! Each pond is brand new.</p>
+        <p class="whoami" id="whoami"></p>
+      </div>
+      <div class="areas" id="areas"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="levelScreen" hidden>
+    <div class="col">
+      <p class="blurb" id="areaBlurb"></p>
+      <div class="levels" id="levels"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="playScreen" hidden>
+    <div class="col">
+      <h2 class="q" id="q"></h2>
+      <div class="status" id="status"></div>
+      <div id="stage" class="col"></div>
+      <div class="msg" id="msg" aria-live="polite"></div>
+      <div class="row" id="actions"></div>
+    </div>
+  </section>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="win" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div id="winArt"></div>
+    <h2 id="winTitle">Great catch!</h2>
+    <p id="winText"></p>
+    <div class="row" id="winBtns"></div>
+  </div>
+</div>
+
+<script src="../shared/profiles.js"></script>
+<script>
+(() => {
+// PP-ENGINES-START
+  const pickR = (r, a) => a[Math.floor(r() * a.length)];
+  const intR = (r, lo, hi) => lo + Math.floor(r() * (hi - lo + 1));
+  const shuffleR = (r, arr) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const freshSeed = () => { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (_) { return Math.floor(Math.random() * 4294967295); } };
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  const hashStr = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+
+  // ======================================================================
+  // GOLD FISH DROP: fish swim along their rows. Every move of the boat (or a wait) is one tick.
+  // Drop the hook: it sinks one row per tick and grabs the first thing it touches. Catch the gold fish!
+  // Row r = { items: [{p, kind}], dir: 1 | -1, slow: 1 | 2 }  (slow 2 = moves every other tick; dir 0 = still)
+  // ======================================================================
+  const dPos = (row, it, T, W) => row.dir === 0 ? it.p : ((it.p + row.dir * Math.floor(T / row.slow)) % W + W) % W;
+  // what is at (x, r) at time T?
+  function dAt(L, x, r, T) { const row = L.rows[r]; for (const it of row.items) if (dPos(row, it, T, L.W) === x) return it.kind; return null; }
+  // drop at time t0 from column x. Returns { kind, row, T } of what was caught (kind null = nothing)
+  function dDrop(L, x, t0) {
+    for (let r = 0; r < L.rows.length; r++) { const T = t0 + r + 1, k = dAt(L, x, r, T); if (k) return { kind: k, row: r, T }; }
+    return { kind: null, row: L.rows.length, T: t0 + L.rows.length };
+  }
+  function dPeriod(L) { return L.rows.some(r => r.slow === 2) ? 2 * L.W : L.W; }
+  // fewest presses (moves + waits + the drop) to catch the gold fish from boat column bx at time t
+  function dSolve(L, bx, t = 0) {
+    const P = dPeriod(L), key = (x, tt) => x + ',' + (tt % P);
+    const seen = new Map([[key(bx, t), null]]), q = [[bx, t, 0]];
+    while (q.length) {
+      const [x, tt, n] = q.shift();
+      if (dDrop(L, x, tt).kind === 'gold') {
+        const path = ['drop']; let k = key(x, tt);
+        while (seen.get(k)) { const [pk, a] = seen.get(k); path.unshift(a); k = pk; }
+        return path;
+      }
+      for (const [dx, a] of [[-1, 'left'], [1, 'right'], [0, 'wait']]) {
+        const nx = x + dx; if (nx < 0 || nx >= L.W) continue;
+        const k = key(nx, tt + 1);
+        if (!seen.has(k)) { seen.set(k, [key(x, tt), a]); q.push([nx, tt + 1, n + 1]); }
+      }
+    }
+    return null;
+  }
+  const D_SPEC = [
+    { W: 5, D: 3, extra: 1, slow: 0, still: 0 }, { W: 5, D: 3, extra: 2, slow: 0, still: 0 },
+    { W: 6, D: 4, extra: 3, slow: 0, still: 0 }, { W: 6, D: 4, extra: 4, slow: 0, still: 1 },
+    { W: 6, D: 5, extra: 5, slow: 1, still: 1 }, { W: 7, D: 5, extra: 6, slow: 1, still: 1 },
+    { W: 7, D: 5, extra: 7, slow: 2, still: 1 }, { W: 7, D: 6, extra: 8, slow: 2, still: 2 },
+    { W: 7, D: 6, extra: 9, slow: 2, still: 2 }, { W: 7, D: 6, extra: 10, slow: 3, still: 2 }
+  ];
+  function makeDrop(lv, seed) {
+    const sp = D_SPEC[lv];
+    for (let tries = 0; tries < 3000; tries++) {
+      const r = rng(seed + tries * 7919);
+      const rows = Array.from({ length: sp.D }, () => ({ items: [], dir: r() < .5 ? 1 : -1, slow: 1 }));
+      const goldRow = sp.D - 1 - (lv >= 6 && r() < .4 ? 1 : 0);
+      const stillRows = shuffleR(r, [...Array(goldRow).keys()]).slice(0, sp.still);
+      stillRows.forEach(i => rows[i].dir = 0);
+      shuffleR(r, [...Array(sp.D).keys()].filter(i => rows[i].dir !== 0)).slice(0, sp.slow).forEach(i => rows[i].slow = 2);
+      rows[goldRow].items.push({ p: intR(r, 0, sp.W - 1), kind: 'gold' });
+      if (rows[goldRow].dir === 0) rows[goldRow].dir = 1;
+      for (let e = 0; e < sp.extra; e++) {
+        const ri = intR(r, 0, sp.D - 1), row = rows[ri];
+        if (row.items.length >= Math.ceil(sp.W / 2)) continue;
+        const free = [...Array(sp.W).keys()].filter(p => !row.items.some(it => it.p === p));
+        const kind = row.dir === 0 ? pickR(r, ['boot', 'rock']) : pickR(r, ['fish', 'fish', 'jelly']);
+        if (row.dir === 0 && row.items.length >= 2) continue;
+        row.items.push({ p: pickR(r, free), kind });
+      }
+      const L = { W: sp.W, rows, start: Math.floor(sp.W / 2), goldRow };
+      const path = dSolve(L, L.start, 0);
+      const minLen = 2 + Math.min(lv, 5);
+      if (!path || path.length < minLen || path.length > 14) continue;
+      // the obvious move (go straight above the gold fish now and drop) must fail
+      const gx = dPos(rows[goldRow], rows[goldRow].items[0], 0, sp.W);
+      const steps = Math.abs(gx - L.start);
+      if (dDrop(L, gx, steps).kind === 'gold' && lv >= 1) continue;
+      // something must be in the way: at least one blocker row has a mover the hook can hit
+      if (rows.filter(rw => rw.items.some(it => it.kind !== 'gold')).length < Math.min(sp.D - 1, 1 + Math.floor(lv / 2))) continue;
+      L.best = path.length; L.path = path;
+      L.sig = 'd' + lv + hashStr(JSON.stringify([rows, L.start]));
+      return L;
+    }
+    throw new Error('no drop ' + lv);
+  }
+
+  // ======================================================================
+  // FISH MARKET: every fish has a weight. Fill the buckets so each weighs exactly what the order says.
+  // Only one way works. Kinds: 'pick' (choose fish for one bucket), 'split' (share ALL fish equally).
+  // ======================================================================
+  const M_SPEC = [
+    { kind: 'pick', n: 5, count: 2, max: 9 }, { kind: 'pick', n: 6, count: 2, max: 9 },
+    { kind: 'pick', n: 6, count: 3, max: 9 }, { kind: 'pick', n: 7, count: 3, max: 9 },
+    { kind: 'pick', n: 7, count: 0, max: 9 }, { kind: 'pick', n: 8, count: 0, max: 12 },
+    { kind: 'split', n: 6, buckets: 2, max: 9 }, { kind: 'split', n: 7, buckets: 2, max: 12 },
+    { kind: 'orders', n: 7, buckets: 2, max: 9 }, { kind: 'split', n: 7, buckets: 3, max: 9 }
+  ];
+  // every way to put fish into buckets (0 = left in the pond) that matches the level. Returns list of assignments.
+  function mSolutions(M, limit = 50) {
+    const n = M.fish.length, B = M.targets.length, sols = [], a = new Array(n).fill(0);
+    const sums = new Array(B + 1).fill(0), counts = new Array(B + 1).fill(0);
+    const rec = i => {
+      if (sols.length >= limit) return;
+      if (i === n) {
+        for (let b = 1; b <= B; b++) if (sums[b] !== M.targets[b - 1]) return;
+        if (M.kind === 'split' && counts[0] > 0) return;
+        if (M.count && counts[1] !== M.count) return;
+        // buckets in a 'split' are interchangeable: only keep the version where bucket order follows first fish
+        if (M.kind === 'split') { const firsts = []; for (let b = 1; b <= B; b++) firsts.push(a.indexOf(b)); for (let b = 1; b < B; b++) if (firsts[b] < firsts[b - 1]) return; }
+        sols.push(a.slice()); return;
+      }
+      for (let b = M.kind === 'split' ? 1 : 0; b <= B; b++) {
+        if (b > 0 && sums[b] + M.fish[i] > M.targets[b - 1]) continue;
+        a[i] = b; sums[b] += M.fish[i]; counts[b]++;
+        rec(i + 1);
+        sums[b] -= M.fish[i]; counts[b]--;
+      }
+      a[i] = 0;
+    };
+    rec(0);
+    return sols;
+  }
+  function makeMarket(lv, seed) {
+    const sp = M_SPEC[lv];
+    for (let tries = 0; tries < 5000; tries++) {
+      const r = rng(seed + tries * 104729);
+      const fish = Array.from({ length: sp.n }, () => intR(r, 1, sp.max));
+      let targets;
+      if (sp.kind === 'pick') {
+        const k = sp.count || intR(r, 2, Math.min(4, sp.n - 2));
+        const chosen = shuffleR(r, [...fish.keys()]).slice(0, k);
+        targets = [chosen.reduce((s, i) => s + fish[i], 0)];
+      } else if (sp.kind === 'split') {
+        const tot = fish.reduce((s, v) => s + v, 0);
+        if (tot % sp.buckets) continue;
+        targets = new Array(sp.buckets).fill(tot / sp.buckets);
+      } else {
+        const idx = shuffleR(r, [...fish.keys()]);
+        const a = idx.slice(0, 2), b = idx.slice(2, 5);
+        targets = [a.reduce((s, i) => s + fish[i], 0), b.reduce((s, i) => s + fish[i], 0)];
+      }
+      const M = { kind: sp.kind, fish, targets, count: sp.count || 0 };
+      const sols = mSolutions(M, 3);
+      if (sols.length !== 1) continue;
+      // no fish weighs more than a whole order on its own in the easy levels (keeps it fair), and not too samey
+      if (new Set(fish).size < Math.min(sp.n - 1, 5)) continue;
+      M.solution = sols[0];
+      M.colors = fish.map(() => intR(r, 0, 4));
+      M.sig = 'm' + lv + hashStr(JSON.stringify([fish.slice().sort((x, y) => x - y), targets]));
+      return M;
+    }
+    throw new Error('no market ' + lv);
+  }
+
+  // ======================================================================
+  // CURRENT MAZE: the hook sinks straight down, but a current cell pushes it one step sideways.
+  // Rocks stop it. Flip some currents and pick where the boat stops so the hook reaches the gold fish.
+  // Cells: '.' water, '<' '>' currents, '#' rock, 'G' gold fish, 'f' little fish, 'b' old boot
+  // ======================================================================
+  // trace the hook from column x. Returns { end: 'gold'|'fish'|'boot'|'snag'|'loop'|'bottom', path: [[x,y]...] }
+  function cTrace(grid, x) {
+    const H = grid.length, W = grid[0].length, path = [];
+    const cell = (cx, cy) => grid[cy][cx];
+    if (cell(x, 0) === '#') return { end: 'snag', path: [[x, -1]] };
+    let cx = x, cy = 0; const seen = new Set();
+    for (;;) {
+      path.push([cx, cy]);
+      const c = cell(cx, cy);
+      if (c === 'G') return { end: 'gold', path };
+      if (c === 'f') return { end: 'fish', path };
+      if (c === 'b') return { end: 'boot', path };
+      const k = cx + ',' + cy; if (seen.has(k)) return { end: 'loop', path }; seen.add(k);
+      let nx = cx, ny = cy + 1;
+      if (c === '<' || c === '>') {
+        const sx = cx + (c === '<' ? -1 : 1);
+        if (sx >= 0 && sx < W && cell(sx, cy) !== '#') { nx = sx; ny = cy; }
+      }
+      if (ny >= H) return { end: 'bottom', path };
+      if (cell(nx, ny) === '#') return { end: 'snag', path };
+      cx = nx; cy = ny;
+    }
+  }
+  const cFlip = (grid, cells) => { const g = grid.map(row => row.split('')); for (const [x, y] of cells) g[y][x] = g[y][x] === '<' ? '>' : '<'; return g.map(row => row.join('')); };
+  // all (column, flips) that work, with the fewest flips
+  function cSolve(grid, maxFlips = 3) {
+    const arrows = [];
+    grid.forEach((row, y) => [...row].forEach((c, x) => { if (c === '<' || c === '>') arrows.push([x, y]); }));
+    const W = grid[0].length;
+    for (let k = 0; k <= maxFlips; k++) {
+      const sols = [];
+      const rec = (start, chosen) => {
+        if (chosen.length === k) { const g = cFlip(grid, chosen); for (let x = 0; x < W; x++) if (cTrace(g, x).end === 'gold') sols.push({ x, flips: chosen.slice() }); return; }
+        for (let i = start; i < arrows.length; i++) { chosen.push(arrows[i]); rec(i + 1, chosen); chosen.pop(); }
+      };
+      rec(0, []);
+      if (sols.length) return { min: k, sols, arrows: arrows.length };
+    }
+    return null;
+  }
+  const C_SPEC = [
+    { W: 5, H: 5, flips: 0, arrows: 5 }, { W: 6, H: 5, flips: 0, arrows: 7 },
+    { W: 5, H: 5, flips: 1, arrows: 5 }, { W: 6, H: 6, flips: 1, arrows: 7 }, { W: 6, H: 6, flips: 1, arrows: 9 },
+    { W: 6, H: 6, flips: 2, arrows: 8 }, { W: 7, H: 6, flips: 2, arrows: 10 }, { W: 7, H: 7, flips: 2, arrows: 11 },
+    { W: 7, H: 7, flips: 3, arrows: 10 }, { W: 7, H: 7, flips: 3, arrows: 12 }
+  ];
+  function makeCurrents(lv, seed) {
+    const sp = C_SPEC[lv];
+    for (let tries = 0; tries < 6000; tries++) {
+      const r = rng(seed + tries * 15485863);
+      const g = Array.from({ length: sp.H }, () => new Array(sp.W).fill('.'));
+      const gy = sp.H - 1 - (r() < .3 ? 1 : 0), gx = intR(r, 0, sp.W - 1);
+      g[gy][gx] = 'G';
+      const put = (ch, yLo) => { for (let i = 0; i < 30; i++) { const x = intR(r, 0, sp.W - 1), y = intR(r, yLo, sp.H - 1); if (g[y][x] === '.') { g[y][x] = ch; return; } } };
+      for (let i = 0; i < sp.arrows; i++) put(r() < .5 ? '<' : '>', 0);
+      const rocks = intR(r, 1, 2 + Math.floor(lv / 3)); for (let i = 0; i < rocks; i++) put('#', 1);
+      const bad = 1 + Math.floor(lv / 3); for (let i = 0; i < bad; i++) put(r() < .6 ? 'f' : 'b', 2);
+      const grid = g.map(row => row.join(''));
+      const s = cSolve(grid, sp.flips);
+      if (!s || s.min !== sp.flips) continue;
+      if (s.sols.length > (sp.flips === 0 ? 1 : 2)) continue;
+      // the winning hook path should wiggle: it must ride at least a couple of currents
+      const best = s.sols[0], tr = cTrace(cFlip(grid, best.flips), best.x);
+      const sideways = tr.path.filter((p, i) => i && p[1] === tr.path[i - 1][1]).length;
+      if (sideways < 2 + Math.floor(lv / 4)) continue;
+      // dropping straight above the gold fish must not work
+      if (cTrace(grid, gx).end === 'gold') continue;
+      return { W: sp.W, H: sp.H, grid, flips: sp.flips, sols: s.sols, start: Math.floor(sp.W / 2), sig: 'c' + lv + hashStr(grid.join('/')) };
+    }
+    throw new Error('no currents ' + lv);
+  }
+// PP-ENGINES-END
+
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ---------- sound and speech ----------
+  let audio = null, soundOn = true;
+  addEventListener('pointerdown', () => { try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch (_) { audio = null; } }, { once: true });
+  function beep(f, d = .1, type = 'triangle', v = .1) {
+    if (!soundOn || !audio) return;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type; o.frequency.value = f; g.gain.setValueAtTime(v, audio.currentTime); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + d);
+    o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + d);
+  }
+  const tune = (n, gap = 100) => n.forEach((f, i) => setTimeout(() => beep(f, .16, 'triangle', .14), i * gap));
+  const splash = () => { beep(240, .12, 'sine', .12); setTimeout(() => beep(170, .18, 'sine', .1), 70); };
+  let speech = '';
+  function say(text, force) { if (!force && !soundOn) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/[“”"]/g, '')); u.rate = .92; u.pitch = 1.08; speechSynthesis.speak(u); } catch (_) {} }
+  $('sound').addEventListener('click', () => { soundOn = !soundOn; $('sound').setAttribute('aria-pressed', soundOn); $('sound').setAttribute('aria-label', soundOn ? 'Sound on' : 'Sound off'); if (!soundOn) try { speechSynthesis.cancel(); } catch (_) {} });
+  $('hear').addEventListener('click', () => say(speech, true));
+
+  // ---------- art ----------
+  const FISH_COLS = ['#ff8a5c', '#38c79a', '#9b8cff', '#ff6fa8', '#4fb3ff'];
+  // a fish facing right (dir -1 faces left). gold = the prize fish.
+  function fishSvg(fill, dir = 1, gold = false) {
+    const stroke = gold ? '#a86b00' : '#1b2b3a';
+    const body = `<path d="M13 15 L3 6 L5 15 L3 24 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.6" stroke-linejoin="round"/>
+      <ellipse cx="23" cy="15" rx="14" ry="9.5" fill="${fill}" stroke="${stroke}" stroke-width="1.6"/>
+      <path d="M19 7 q4 -5 9 -1" fill="${fill}" stroke="${stroke}" stroke-width="1.4"/>
+      <path d="M17 9 q-3 6 0 12" fill="none" stroke="${stroke}" stroke-width="1.2" opacity=".5"/>
+      <circle cx="30" cy="12.5" r="2.6" fill="#fff" stroke="${stroke}" stroke-width="1"/><circle cx="30.8" cy="12.5" r="1.3" fill="#1b2b3a"/>
+      <path d="M34 18 q2 0 3 -1.5" fill="none" stroke="${stroke}" stroke-width="1.3" stroke-linecap="round"/>
+      ${gold ? '<path d="M21 4 l1 -3 l1 3 l3 1 l-3 1 l-1 3 l-1 -3 l-3 -1z" fill="#fff"/><ellipse cx="22" cy="11" rx="5" ry="2" fill="#fff" opacity=".55"/>' : ''}`;
+    return `<svg viewBox="0 -2 40 34" aria-hidden="true"><g ${dir < 0 ? 'transform="translate(40 0) scale(-1 1)"' : ''}>${body}</g></svg>`;
+  }
+  const GOLD = dir => fishSvg('#ffc93c', dir, true);
+  const JELLY = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M7 20 a13 12 0 0 1 26 0 q-3 3 -6.5 0 q-3.5 3 -6.5 0 q-3 3 -6.5 0 q-3.5 3 -6.5 0z" fill="#f78fb3" stroke="#1b2b3a" stroke-width="1.6"/><path d="M11 23 q-2 5 1 9 M17 23 q2 5 -1 11 M23 23 q-2 5 1 11 M29 23 q2 5 -1 9" fill="none" stroke="#c2185b" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="14" r="1.6" fill="#1b2b3a"/><circle cx="24" cy="14" r="1.6" fill="#1b2b3a"/></svg>';
+  const BOOT = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M12 5h12v17l10 4q2 1 2 4v4H8V8z" fill="#8a5a2b" stroke="#1b2b3a" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 30h28" stroke="#5b3a1a" stroke-width="3"/><path d="M14 11h8M14 16h8" stroke="#d9b48a" stroke-width="1.6"/><path d="M26 10q4 -3 3 -7" fill="none" stroke="#3fae5a" stroke-width="2" stroke-linecap="round"/></svg>';
+  const ROCK = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M4 32 q-1 -10 7 -16 q5 -9 14 -7 q10 2 11 12 q2 7 -1 11z" fill="#8d99a6" stroke="#1b2b3a" stroke-width="1.8" stroke-linejoin="round"/><path d="M13 19 q4 -5 9 -4" fill="none" stroke="#c4ccd4" stroke-width="2.2" stroke-linecap="round"/></svg>';
+  const BOAT = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 30 V12" stroke="#5b3a1a" stroke-width="2"/><path d="M20 12 q8 -6 14 -2" fill="none" stroke="#5b3a1a" stroke-width="1.8"/><circle cx="16" cy="17" r="4" fill="#ffd2a6" stroke="#1b2b3a" stroke-width="1.4"/><path d="M11 15 q5 -6 10 0z" fill="#ff6b4a" stroke="#1b2b3a" stroke-width="1.2"/><path d="M12 21h8v5h-8z" fill="#3b82f6" stroke="#1b2b3a" stroke-width="1.2"/><path d="M3 26h34l-5 9H8z" fill="#c9773a" stroke="#1b2b3a" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 29h28" stroke="#f3dfb4" stroke-width="1.5"/></svg>';
+  const CURRENT = left => `<svg viewBox="0 0 40 40" aria-hidden="true"><g ${left ? 'transform="translate(40 0) scale(-1 1)"' : ''}><path d="M5 25 q6 -9 13 -4 q7 5 13 -5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M26 12 l9 1 l-3 8z" fill="#fff"/><path d="M6 32 q5 -3 9 0" fill="none" stroke="#e1f5ff" stroke-width="2.4" stroke-linecap="round" opacity=".8"/></g></svg>`;
+  const ARROW = d => `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="${d === 'left' ? 'M15 4L7 12l8 8z' : d === 'right' ? 'M9 4l8 8-8 8z' : d === 'wait' ? 'M7 3h10v3l-4 6 4 6v3H7v-3l4-6-4-6z' : 'M11 2h2v13a3 3 0 1 1-6 0h2a1 1 0 1 0 2 0z'}"/></svg>`;
+  const CAT_COLS = [['#f4a340', '#c96f12'], ['#9aa5b1', '#5f6b78'], ['#fdfdfd', '#2b2b2b']];
+  const CAT_NAMES = ['Tiger', 'Smokey', 'Domino'];
+  const catSvg = ([fur, dark]) => `<svg viewBox="0 0 46 46" aria-hidden="true"><path d="M8 20 L6 4 L18 12z M38 20 L40 4 L28 12z" fill="${fur}" stroke="#1b2b3a" stroke-width="1.8" stroke-linejoin="round"/><circle cx="23" cy="25" r="16" fill="${fur}" stroke="#1b2b3a" stroke-width="1.8"/><path d="M15 14 q2 4 0 7 M23 10 v6 M31 14 q-2 4 0 7" stroke="${dark}" stroke-width="2.2" fill="none" stroke-linecap="round"/><ellipse cx="17" cy="24" rx="2.6" ry="3.4" fill="#2f9e5a"/><ellipse cx="29" cy="24" rx="2.6" ry="3.4" fill="#2f9e5a"/><circle cx="17" cy="24" r="1.2" fill="#111"/><circle cx="29" cy="24" r="1.2" fill="#111"/><path d="M21 30 h4 l-2 2.5z" fill="#ff7aa2"/><path d="M23 32.5 q-3 3 -6 1 M23 32.5 q3 3 6 1" fill="none" stroke="#1b2b3a" stroke-width="1.4" stroke-linecap="round"/><path d="M4 28 h9 M4 32 h9 M33 28 h9 M33 32 h9" stroke="#1b2b3a" stroke-width="1" opacity=".6"/></svg>`;
+  function px(rows, pal, cls = '') {
+    let r = ''; rows.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) r += `<rect x="${x}" y="${y}" width="1.05" height="1.05" fill="${pal[ch]}"/>`; }));
+    return `<svg class="${cls}" viewBox="0 0 ${rows[0].length} ${rows.length}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;
+  }
+  const STAR_SHAPE = ['....y....', '...yyy...', 'yyyyyyyyy', '.yyyyyyy.', '..yyyyy..', '.yyy.yyy.', '.yy...yy.'];
+  const STAR_ON = px(STAR_SHAPE, { y: '#f5b800' }), STAR_OFF = px(STAR_SHAPE, { y: '#d6dbe5' });
+  const LOCK = px(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kyyyyyyk', 'kyykkyyk', 'kyyyyyyk', 'kkkkkkkk'], { k: '#1b2b3a', y: '#ffc93c' }, 'lock');
+  const TROPHY = px(['kkkkkkkkkk', 'kyyyyyyyyk', 'yyyybbyyyy', 'y.yybbyy.y', '.yyyyyyyy.', '..yyyyyy..', '...yyyy...', '....yy....', '...kyyk...', '..yyyyyy..'], { k: '#b7791f', y: '#f5c518', b: '#2a9fd6' }, 'trophy');
+  const BADGE = `<svg class="badge" viewBox="0 0 110 72" aria-hidden="true"><path d="M0 40 q14 -6 27 0 t28 0 t28 0 t27 0 V72 H0z" fill="#2a9fd6"/><g transform="translate(30 0) scale(1.25)">${BOAT.replace(/<\/?svg[^>]*>/g, '')}</g><path d="M55 42 V58" stroke="#1b2b3a" stroke-width="1.5"/><g transform="translate(58 50) scale(.9)">${GOLD(-1).replace(/<\/?svg[^>]*>/g, '')}</g></svg>`;
+  const ICON_DROP = `<svg viewBox="0 0 70 70" aria-hidden="true"><g transform="translate(14 -2) scale(1)">${BOAT.replace(/<\/?svg[^>]*>/g, '')}</g><path d="M34 33 V54" stroke="#1b2b3a" stroke-width="1.5"/><path d="M34 54 q0 4 -3 4 q-3 0 -3 -3" fill="none" stroke="#1b2b3a" stroke-width="1.6"/><g transform="translate(36 46) scale(.75)">${GOLD(-1).replace(/<\/?svg[^>]*>/g, '')}</g></svg>`;
+  const ICON_MARKET = `<svg viewBox="0 0 70 70" aria-hidden="true"><g transform="translate(5 20) scale(1.5)">${fishSvg('#ff8a5c').replace(/<\/?svg[^>]*>/g, '')}</g><circle cx="38" cy="43" r="11" fill="#fff" stroke="#1b2b3a" stroke-width="2"/><text x="38" y="49" text-anchor="middle" font-size="16" font-weight="800" fill="#1b2b3a" font-family="Baloo 2, sans-serif">5</text></svg>`;
+  const ICON_CURRENTS = `<svg viewBox="0 0 70 70" aria-hidden="true"><g transform="translate(6 18) scale(1.1)">${CURRENT(false).replace(/<\/?svg[^>]*>/g, '')}</g><g transform="translate(30 40) scale(.85)">${GOLD(1).replace(/<\/?svg[^>]*>/g, '')}</g><path d="M12 2 V20 h22 v20" fill="none" stroke="#1b2b3a" stroke-width="1.6" stroke-dasharray="3 2"/></svg>`;
+  const inner = svg => svg.replace(/<\/?svg[^>]*>/g, '');
+
+  // ---------- per-player saves, and the puzzles each player has already seen ----------
+  const me = KBG.current();
+  const AREA_KEYS = ['drop', 'market', 'currents'];
+  let save = Object.assign({ drop: [], market: [], currents: [], endless: {}, seen: {} }, KBG.get('puzzlepond', {}));
+  save.seen = Object.assign({ drop: [], market: [], currents: [] }, save.seen);
+  function persist() {
+    KBG.set('puzzlepond', save);
+    KBG.setBest('puzzlepond', {
+      stars: AREA_KEYS.reduce((t, a) => t + save[a].reduce((s, v) => s + (v || 0), 0), 0),
+      levels: AREA_KEYS.reduce((t, a) => t + save[a].filter(Boolean).length, 0),
+      endless: Object.values(save.endless).reduce((t, v) => t + v, 0)
+    });
+  }
+  function freshPuzzle(area, lv, make) {
+    let P, seed;
+    for (let i = 0; i < 40; i++) { seed = freshSeed(); P = make(lv, seed); if (!save.seen[area].includes(P.sig)) break; }
+    save.seen[area].push(P.sig);
+    if (save.seen[area].length > 800) save.seen[area].splice(0, save.seen[area].length - 800);
+    persist();
+    return { P, seed };
+  }
+
+  // ---------- screens ----------
+  const AREAS = {
+    drop: { name: 'Gold Fish Drop', blurb: 'Fish swim every time you move. Plan the perfect moment to drop your hook!', count: 10, icon: ICON_DROP, make: makeDrop, build: buildDrop },
+    market: { name: 'Fish Market', blurb: 'The cats want exact weights. Find the only way to fill every bucket.', count: 10, icon: ICON_MARKET, make: makeMarket, build: buildMarket },
+    currents: { name: 'Current Maze', blurb: 'Currents push the hook sideways. Flip them to steer it to the gold fish.', count: 10, icon: ICON_CURRENTS, make: makeCurrents, build: buildCurrents }
+  };
+  let current = null, cleanup = null;
+  const screens = ['mapScreen', 'levelScreen', 'playScreen'];
+  function showScreen(id) { screens.forEach(s => $(s).hidden = s !== id); $(id).scrollTop = 0; }
+  const starsHtml = n => [0, 1, 2].map(i => i < n ? STAR_ON : STAR_OFF).join('');
+  function stopAll() { if (cleanup) { cleanup(); cleanup = null; } try { speechSynthesis.cancel(); } catch (_) {} }
+  function showMap() {
+    stopAll(); current = null;
+    $('title').textContent = 'Puzzle Pond'; $('back').hidden = true; $('hear').hidden = true;
+    $('badge').innerHTML = BADGE;
+    $('whoami').innerHTML = KBG.avatarSvg(me.avatar) + '<span></span><a href="../">Change</a>';
+    $('whoami').querySelector('span').textContent = 'Playing as ' + me.name + ' ·';
+    const wrap = $('areas'); wrap.innerHTML = '';
+    for (const [key, a] of Object.entries(AREAS)) {
+      const stars = save[key].reduce((s, v) => s + (v || 0), 0), done = save[key].filter(Boolean).length;
+      const b = el('button', 'area'); b.type = 'button';
+      b.innerHTML = `<div class="art">${a.icon}</div><div><b>${a.name}</b><span>${a.blurb}</span><div class="prog">${STAR_ON}<span>${stars} / ${a.count * 3}</span><span>&middot; ${done} of ${a.count} levels</span></div></div>`;
+      b.addEventListener('click', () => { beep(523, .08); showLevels(key); });
+      wrap.appendChild(b);
+    }
+    showScreen('mapScreen');
+  }
+  function showLevels(key) {
+    stopAll();
+    const a = AREAS[key]; current = { area: key, lv: null };
+    $('title').textContent = a.name; $('back').hidden = false; $('hear').hidden = true;
+    const wrap = $('levels'); wrap.innerHTML = '';
+    const firstOpen = save[key].filter(Boolean).length;
+    for (let i = 0; i < a.count; i++) {
+      const got = save[key][i] || 0, open = i <= firstOpen;
+      const b = el('button', 'lvl' + (i === firstOpen ? ' next' : '')); b.type = 'button'; b.disabled = !open;
+      b.setAttribute('aria-label', 'Level ' + (i + 1) + (open ? ', ' + got + ' stars' : ', locked'));
+      b.innerHTML = open ? `<span>${i + 1}</span><span class="stars">${starsHtml(got)}</span>` : LOCK;
+      b.addEventListener('click', () => startLevel(key, i));
+      wrap.appendChild(b);
+    }
+    const finished = firstOpen >= a.count, solved = save.endless[key] || 0;
+    const e = el('button', 'lvl endless'); e.type = 'button'; e.disabled = !finished;
+    e.innerHTML = finished ? `<span class="inf">&infin;</span><span class="small">${solved} caught</span>` : LOCK + '<span class="small">Endless</span>';
+    e.setAttribute('aria-label', finished ? 'Endless, ' + solved + ' caught' : 'Endless, locked until every level is done');
+    e.addEventListener('click', () => startEndless(key));
+    wrap.appendChild(e);
+    $('areaBlurb').textContent = a.blurb + ' Every pond is new.';
+    showScreen('levelScreen');
+  }
+  function startLevel(key, lv, opts = {}) {
+    stopAll();
+    let P, seed = opts.seed;
+    if (seed != null) P = AREAS[key].make(lv, seed);
+    else ({ P, seed } = freshPuzzle(key, lv, AREAS[key].make));
+    current = { area: key, lv, seed, endless: !!opts.endless };
+    window.__pp.cur = P;
+    $('title').textContent = AREAS[key].name + ' · ' + (opts.endless ? 'Endless' : lv + 1);
+    $('back').hidden = false; $('hear').hidden = false;
+    $('stage').innerHTML = ''; $('status').innerHTML = ''; $('actions').innerHTML = ''; setMsg('');
+    showScreen('playScreen');
+    AREAS[key].build(P, lv);
+    setTimeout(() => say(speech), 350);
+  }
+  function startEndless(key) { const n = AREAS[key].count; startLevel(key, n - 3 + Math.floor(Math.random() * 3), { endless: true }); }
+  function setQ(text, spoken) { $('q').textContent = text; speech = spoken || text; }
+  function setMsg(text, kind, speak) { $('msg').textContent = text; $('msg').className = 'msg' + (kind ? ' ' + kind : ''); if (speak && text) say(text); }
+  function action(label, fn, cls = '') { const b = el('button', 'btn ' + cls, label); b.type = 'button'; b.addEventListener('click', fn); $('actions').appendChild(b); return b; }
+  function win(stars, title, text) {
+    const { area, lv, seed, endless } = current, a = AREAS[area];
+    const btns = $('winBtns'); btns.innerHTML = '';
+    const mk = (label, fn, cls) => { const b = el('button', 'btn ' + (cls || ''), label); b.type = 'button'; b.addEventListener('click', () => { $('overlay').hidden = true; fn(); }); btns.appendChild(b); return b; };
+    KBG.record('puzzlepond-catches', { stars });
+    if (endless) {
+      save.endless[area] = (save.endless[area] || 0) + 1; persist();
+      tune([523, 659, 784, 1047]);
+      $('winArt').innerHTML = `<div class="bigstars">${starsHtml(stars)}</div>`;
+      $('winTitle').textContent = title; $('winText').textContent = text + ' Endless caught: ' + save.endless[area] + '.';
+      mk('Back', () => showLevels(area), 'alt'); const nx = mk('Next pond', () => startEndless(area));
+      $('overlay').hidden = false; nx.focus(); say(title + ' ' + text); return;
+    }
+    save[area][lv] = Math.max(save[area][lv] || 0, stars); persist();
+    const areaDone = save[area].filter(Boolean).length === a.count && lv === a.count - 1;
+    tune(stars === 3 ? [523, 659, 784, 1047, 1319] : [523, 659, 784, 1047]);
+    $('winArt').innerHTML = areaDone ? TROPHY : `<div class="bigstars">${starsHtml(stars)}</div>`;
+    $('winTitle').textContent = areaDone ? 'You finished ' + a.name + '!' : title;
+    $('winText').textContent = text;
+    if (stars < 3) mk('Try this one again', () => startLevel(area, lv, { seed }), 'alt');
+    mk('New pond', () => startLevel(area, lv), 'alt');
+    const first = lv + 1 < a.count ? mk('Next level', () => startLevel(area, lv + 1)) : mk('Back to the pond', showMap);
+    $('overlay').hidden = false; first.focus();
+    say(title + ' ' + text);
+  }
+  $('back').addEventListener('click', () => { stopAll(); if (current && current.lv != null) showLevels(current.area); else showMap(); });
+
+  // the lake board: W columns, H rows (row 0 is the sky with the boat)
+  function makeLake(W, H) {
+    const lake = el('div', 'lake');
+    lake.style.setProperty('--w', W); lake.style.setProperty('--h', H);
+    lake.style.aspectRatio = W + ' / ' + H;
+    lake.style.maxWidth = `min(100%, calc(${(W / H).toFixed(3)} * (100dvh - 330px)), ${W * 76}px)`;
+    lake.style.minWidth = Math.min(W * 40, 300) + 'px';
+    lake.append(el('div', 'grid'), el('div', 'surf'));
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    line.setAttribute('class', 'line'); line.setAttribute('viewBox', `0 0 ${W} ${H}`); line.setAttribute('preserveAspectRatio', 'none');
+    lake.appendChild(line);
+    const place = (node, x, y) => { node.style.left = (x / W * 100) + '%'; node.style.top = (y / H * 100) + '%'; };
+    // draw the fishing line through a list of points (cell units), with a hook at the end
+    const draw = pts => {
+      if (!pts || !pts.length) { line.innerHTML = ''; return; }
+      const [ex, ey] = pts[pts.length - 1];
+      line.innerHTML = `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#1b2b3a" stroke-width="2.4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`
+        + `<path d="M${ex} ${ey} v.12 q0 .16 -.12 .16 q-.12 0 -.12 -.1" fill="none" stroke="#5b6b78" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`
+        + `<circle cx="${pts[0][0]}" cy="${pts[0][1] + .04}" r=".07" fill="#ff6b4a"/>`;
+    };
+    return { lake, place, draw };
+  }
+  function padButton(label, icon, fn, cls = 'alt') {
+    const b = el('button', 'btn ' + cls, ARROW(icon) + `<small>${label}</small>`); b.type = 'button';
+    b.setAttribute('aria-label', label); b.addEventListener('click', fn); return b;
+  }
+
+  // ======================================================================
+  // GOLD FISH DROP
+  // ======================================================================
+  function buildDrop(L, lv) {
+    const W = L.W, D = L.rows.length, H = D + 1;
+    let bx = L.start, t = 0, presses = 0, fails = 0, hinted = false, busy = false, done = false, hookRow = null, timer = null;
+    const hasStill = L.rows.some(r => r.dir === 0), hasSlow = L.rows.some(r => r.slow === 2);
+    setQ('Catch the gold fish!', 'Catch the gold fish! Every time you move the boat or wait, all the fish swim one step. When you drop the hook, it sinks one row at a time and grabs the first thing it touches. Don\'t hook anything else!' + (hasSlow ? ' The pale see-through fish are slow: they only swim every second step.' : '') + ' The best you can do is ' + L.best + ' presses, counting the drop.');
+    const pressChip = el('div', 'chip'), goalChip = el('div', 'chip goal', `<span>Best: ${L.best} presses</span>`);
+    $('status').append(pressChip, goalChip);
+    const { lake, place, draw } = makeLake(W, H);
+    const items = [];
+    L.rows.forEach((row, r) => row.items.forEach(it => {
+      const svg = it.kind === 'gold' ? GOLD(row.dir) : it.kind === 'fish' ? fishSvg(FISH_COLS[(r * 3 + it.p) % FISH_COLS.length], row.dir) : it.kind === 'jelly' ? JELLY : it.kind === 'boot' ? BOOT : ROCK;
+      const node = el('div', 'it', svg);
+      if (row.slow === 2) { node.style.opacity = '.6'; node.style.filter = 'saturate(.6)'; }
+      lake.appendChild(node); items.push({ node, row, r, it, last: null });
+    }));
+    const boat = el('div', 'it boat', BOAT); lake.appendChild(boat);
+    const legend = el('div', 'legend', `<span>${GOLD(1)} Catch me!</span><span>${fishSvg(FISH_COLS[0])}${JELLY} Don't hook</span>` + (hasStill ? `<span>${BOOT}${ROCK} Stay still</span>` : '') + (hasSlow ? '<span>Pale = slow, moves every 2nd step</span>' : ''));
+    const pad = el('div', 'pad');
+    const bL = padButton('Left', 'left', () => move(-1)), bWait = padButton('Wait', 'wait', () => move(0)), bR = padButton('Right', 'right', () => move(1)), bDrop = padButton('Drop!', 'drop', drop, 'go');
+    pad.append(bL, bWait, bR, bDrop);
+    $('stage').append(lake, pad, legend);
+    const btnFor = { left: bL, right: bR, wait: bWait, drop: bDrop };
+    function render(jump) {
+      for (const o of items) {
+        const x = dPos(o.row, o.it, t, W);
+        o.node.classList.toggle('noanim', !!jump || o.last == null || Math.abs(x - o.last) > 1);
+        place(o.node, x, o.r + 1); o.last = x;
+      }
+      place(boat, bx, 0);
+      draw(hookRow == null ? null : [[bx + .5, .62], [bx + .5, hookRow + 1.45]]);
+      pressChip.innerHTML = `<span>Presses: ${presses}</span>`;
+      [bL, bWait, bR, bDrop].forEach(b => b.disabled = busy || done);
+      bL.disabled ||= bx === 0; bR.disabled ||= bx === W - 1;
+    }
+    const clearHint = () => Object.values(btnFor).forEach(b => b.classList.remove('hint'));
+    function move(dx) {
+      if (busy || done) return;
+      if (bx + dx < 0 || bx + dx >= W) return;
+      bx += dx; t++; presses++; clearHint();
+      beep(dx ? 440 : 330, .06); setMsg('');
+      render();
+    }
+    function drop() {
+      if (busy || done) return;
+      busy = true; presses++; clearHint(); splash(); setMsg('');
+      let r = -1;
+      const step = () => {
+        r++; t++;
+        if (r >= D) { hookRow = D - 1; render(); return finish(null); }
+        hookRow = r; render();
+        const k = dAt(L, bx, r, t);
+        if (k) return finish(k);
+        beep(300 - r * 25, .05, 'sine', .06);
+        timer = setTimeout(step, 420);
+      };
+      timer = setTimeout(step, 150);
+    }
+    function finish(kind) {
+      if (kind === 'gold') {
+        done = true; render(); tune([660, 880, 1100], 90);
+        let stars = presses <= L.best && !fails ? 3 : presses <= L.best + 3 && fails <= 1 ? 2 : 1;
+        if (hinted) stars = Math.min(2, stars);
+        const text = 'You caught it with ' + presses + ' presses' + (presses <= L.best ? ', as few as possible!' : '. The fewest is ' + L.best + '.') + (fails ? ' (' + fails + (fails === 1 ? ' miss' : ' misses') + ' first.)' : '');
+        timer = setTimeout(() => win(stars, 'Great catch!', text), 700);
+        return;
+      }
+      fails++;
+      beep(150, .3, 'sawtooth', .05);
+      const why = kind === 'fish' ? 'Oops! A little fish grabbed the hook.' : kind === 'jelly' ? 'Ouch! You hooked a jellyfish.' : kind === 'boot' ? 'You fished up an old boot!' : kind === 'rock' ? 'The hook got stuck on a rock.' : 'The hook sank past. The gold fish wasn\'t there yet!';
+      setMsg(why + ' The fish go back to the start. Plan again!', 'bad', true);
+      timer = setTimeout(() => { bx = L.start; t = 0; presses = 0; hookRow = null; busy = false; render(true); }, 1900);
+    }
+    function hint() {
+      if (busy || done) return;
+      const path = dSolve(L, bx, t);
+      if (!path) return;
+      hinted = true; clearHint();
+      btnFor[path[0]].classList.add('hint');
+      const word = { left: 'Left', right: 'Right', wait: 'Wait', drop: 'Drop' }[path[0]];
+      setMsg('From here, press ' + word + ' next. Then keep watching the fish! Hints make the most stars 2.', '', true);
+    }
+    const onKey = e => {
+      if (e.key === 'ArrowLeft') move(-1); else if (e.key === 'ArrowRight') move(1);
+      else if (e.key === 'ArrowUp' || e.key === 'w') move(0); else if (e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); drop(); }
+    };
+    addEventListener('keydown', onKey);
+    cleanup = () => { clearTimeout(timer); removeEventListener('keydown', onKey); };
+    action('Hint', hint, 'alt');
+    render(true);
+  }
+
+  // ======================================================================
+  // FISH MARKET
+  // ======================================================================
+  function buildMarket(M, lv) {
+    const n = M.fish.length, B = M.targets.length, maxW = Math.max(...M.fish);
+    const place = new Array(n).fill(0), locked = new Set();
+    let sel = 1, wrong = 0, hinted = false, done = false, hintFish = -1, lastMoved = -1;
+    const kg = w => w + ' kg';
+    let q, spoken;
+    if (M.kind === 'pick') {
+      q = `Tiger wants exactly ${kg(M.targets[0])} of fish` + (M.count ? `, using ${M.count} fish.` : '.');
+      spoken = q + (M.count ? '' : ' Use as many fish as you like.') + ' Tap fish to put them in the bucket. Tap a fish in the bucket to put it back. There is only one way that works!';
+    } else if (M.kind === 'split') {
+      q = `Share ALL the fish so ${B === 2 ? 'both cats get' : 'all 3 cats get'} ${kg(M.targets[0])} each.`;
+      spoken = q + ' Tap a cat\'s bucket to choose it, then tap fish to give them to that cat. Every fish must go to a cat.';
+    } else {
+      q = 'Give each cat exactly the weight they want. Some fish can stay in the pond.';
+      spoken = q + ' Tiger wants ' + kg(M.targets[0]) + ' and Smokey wants ' + kg(M.targets[1]) + '. Tap a bucket to choose it, then tap fish.';
+    }
+    setQ(q, spoken);
+    const checksChip = el('div', 'chip'); $('status').append(checksChip);
+    const cats = el('div', 'cats'), pond = el('div', 'pond');
+    $('stage').append(el('p', 'label', B > 1 ? 'Buckets (tap one to fill it)' : 'Tiger\'s bucket'), cats, el('p', 'label', 'The pond (tap a fish)'), pond);
+    const sumOf = b => M.fish.reduce((s, w, i) => s + (place[i] === b ? w : 0), 0);
+    const countOf = b => place.filter(p => p === b).length;
+    function fishBtn(i) {
+      const w = M.fish[i], sc = (.72 + .28 * w / maxW).toFixed(2);
+      const b = el('button', 'fishbtn' + (locked.has(i) ? ' locked' : '') + (i === hintFish ? ' hint' : '') + (i === lastMoved ? ' new' : ''),
+        `<span style="display:grid;width:100%;height:100%;transform:scale(${sc})">${fishSvg(FISH_COLS[M.colors[i]], i % 2 ? -1 : 1)}</span><span class="kg"${i % 2 ? ' style="transform:translate(-38%,-50%)"' : ''}>${w}</span>`);
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Fish weighing ' + kg(w) + (place[i] ? ', in ' + CAT_NAMES[place[i] - 1] + '\'s bucket' : ', in the pond'));
+      b.addEventListener('click', e => { e.stopPropagation(); tapFish(i); });
+      return b;
+    }
+    function draw() {
+      cats.innerHTML = '';
+      for (let b = 1; b <= B; b++) {
+        const sum = sumOf(b), tgt = M.targets[b - 1];
+        const card = el('div', 'bucket' + (B > 1 && sel === b ? ' sel' : ''));
+        card.setAttribute('role', 'button'); card.tabIndex = 0;
+        card.setAttribute('aria-label', CAT_NAMES[b - 1] + ' wants ' + kg(tgt) + ', has ' + kg(sum) + (B > 1 ? (sel === b ? ', chosen' : ', tap to choose') : ''));
+        const extra = M.count && b === 1 ? `<br><small>using ${M.count} fish (${countOf(1)} now)</small>` : '';
+        card.innerHTML = `<div class="who">${catSvg(CAT_COLS[b - 1])}<div class="order">${CAT_NAMES[b - 1]} wants<br><b>${kg(tgt)}</b>${extra}</div></div><div class="total ${sum === tgt ? 'ok' : sum > tgt ? 'over' : ''}">Has ${kg(sum)}</div>`;
+        const tray = el('div', 'tray');
+        M.fish.forEach((_, i) => { if (place[i] === b) tray.appendChild(fishBtn(i)); });
+        card.appendChild(tray);
+        const choose = () => { if (B > 1 && sel !== b) { sel = b; beep(600, .05); draw(); } };
+        card.addEventListener('click', choose);
+        card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); } });
+        cats.appendChild(card);
+      }
+      pond.innerHTML = '';
+      M.fish.forEach((_, i) => { if (!place[i]) pond.appendChild(fishBtn(i)); });
+      if (!pond.children.length) pond.appendChild(el('span', '', '<b style="color:#fff">The pond is empty!</b>'));
+      checksChip.innerHTML = `<span>Wrong checks: ${wrong}</span>`;
+      lastMoved = -1;
+    }
+    function tapFish(i) {
+      if (done) return;
+      if (locked.has(i)) { setMsg('The hint put that fish there. It\'s the right spot!', '', true); return; }
+      hintFish = -1;
+      if (place[i]) { place[i] = 0; beep(380, .06); }
+      else { place[i] = sel; beep(560, .06); splash(); }
+      lastMoved = i; setMsg('');
+      draw();
+    }
+    function check() {
+      if (done) return;
+      if (place.every(p => !p)) { setMsg('Put some fish in ' + (B > 1 ? 'the buckets' : 'the bucket') + ' first!', '', true); return; }
+      const probs = [];
+      for (let b = 1; b <= B; b++) {
+        const s = sumOf(b), tgt = M.targets[b - 1], nm = CAT_NAMES[b - 1];
+        if (s > tgt) probs.push(`${nm}'s bucket is too heavy. It has ${kg(s)}, but ${nm} wants ${kg(tgt)}.`);
+        else if (s < tgt) probs.push(`${nm}'s bucket is too light. It has ${kg(s)}, but ${nm} wants ${kg(tgt)}.`);
+      }
+      if (M.count && countOf(1) !== M.count) probs.push(`Tiger wants exactly ${M.count} fish, but the bucket has ${countOf(1)}.`);
+      if (M.kind === 'split' && countOf(0)) probs.push('There are still fish in the pond. Every fish must go to a cat!');
+      if (!probs.length) {
+        done = true; draw(); tune([660, 880, 1100], 90);
+        let stars = wrong === 0 ? 3 : wrong === 1 ? 2 : 1;
+        if (hinted) stars = Math.min(2, stars);
+        const text = (B > 1 ? 'Every cat is happy!' : 'Tiger is happy!') + (wrong ? ' You checked ' + (wrong + 1) + ' times.' : ' Right on the first check!');
+        setTimeout(() => win(stars, 'Purr-fect!', text), 500);
+        return;
+      }
+      wrong++; beep(150, .3, 'sawtooth', .05);
+      cats.classList.add('shake'); setTimeout(() => cats.classList.remove('shake'), 320);
+      setMsg(probs[0], 'bad', true); draw();
+    }
+    // the answer, with buckets renamed to best match what the player has done (in a share-out any cat can get any pile)
+    function answer() {
+      let perms = [[...Array(B + 1).keys()]];
+      if (M.kind === 'split') {
+        const per = a => a.length <= 1 ? [a] : a.flatMap((x, i) => per([...a.slice(0, i), ...a.slice(i + 1)]).map(p => [x, ...p]));
+        perms = per([...Array(B).keys()].map(k => k + 1)).map(p => [0, ...p]);
+      }
+      let best = null, bestScore = -1;
+      for (const p of perms) {
+        const ans = M.solution.map(b => p[b]);
+        if ([...locked].some(i => ans[i] !== place[i])) continue;
+        const score = ans.filter((b, i) => b === place[i]).length;
+        if (score > bestScore) { best = ans; bestScore = score; }
+      }
+      return best;
+    }
+    function hint() {
+      if (done) return;
+      const ans = answer();
+      const order = [...Array(n).keys()].filter(i => !locked.has(i) && place[i] !== ans[i]);
+      if (!order.length) { setMsg('Everything is in the right place. Press Check!', '', true); return; }
+      const i = order.find(k => place[k] && ans[k] === 0) ?? order.find(k => ans[k] > 0) ?? order[0];
+      hinted = true; place[i] = ans[i]; locked.add(i); hintFish = i; lastMoved = i;
+      setMsg(ans[i] ? 'The ' + kg(M.fish[i]) + ' fish belongs to ' + CAT_NAMES[ans[i] - 1] + '. Hints make the most stars 2.' : 'The ' + kg(M.fish[i]) + ' fish doesn\'t belong in any bucket. Hints make the most stars 2.', '', true);
+      draw();
+    }
+    action('Check!', check, 'go');
+    action('Empty buckets', () => { if (done) return; for (let i = 0; i < n; i++) if (!locked.has(i)) place[i] = 0; hintFish = -1; setMsg(''); beep(300, .08); draw(); }, 'alt');
+    action('Hint', hint, 'alt');
+    draw();
+  }
+
+  // ======================================================================
+  // CURRENT MAZE
+  // ======================================================================
+  function buildCurrents(C, lv) {
+    const W = C.W, H = C.H + 1, K = C.flips, orig = C.grid;
+    let grid = C.grid.slice(), bx = C.start, fails = 0, hinted = false, busy = false, done = false, shown = null, hintCell = null, hintCol = -1, timer = null;
+    const flipsUsed = () => { let k = 0; grid.forEach((row, y) => { for (let x = 0; x < W; x++) if (row[x] !== orig[y][x]) k++; }); return k; };
+    setQ(K === 0 ? 'Where should the boat stop so the hook reaches the gold fish?' : `Flip ${K === 1 ? '1 current' : K + ' currents'}, then pick a spot so the hook reaches the gold fish!`,
+      (K === 0 ? 'Where should the boat stop so the hook reaches the gold fish?' : 'You can flip ' + K + (K === 1 ? ' current' : ' currents') + ' by tapping them. Then pick where the boat stops.')
+      + ' The hook sinks straight down. When it lands on a current, it gets pushed one step the way the arrow points. Rocks stop the hook. Don\'t hook the little fish or the old boot! Try to get it right first time.');
+    const flipChip = el('div', 'chip goal'), triesChip = el('div', 'chip');
+    $('status').append(...(K ? [flipChip] : []), triesChip);
+    const { lake, place, draw } = makeLake(W, H);
+    const cellsLayer = el('div'); lake.appendChild(cellsLayer);
+    const boat = el('div', 'it boat', BOAT); lake.appendChild(boat);
+    for (let x = 0; x < W; x++) {
+      const s = el('button', 'skybtn'); s.type = 'button'; s.style.left = (x / W * 100) + '%';
+      s.setAttribute('aria-label', 'Move the boat to spot ' + (x + 1));
+      s.addEventListener('click', () => moveTo(x)); lake.appendChild(s);
+    }
+    const pad = el('div', 'pad');
+    const bL = padButton('Left', 'left', () => moveTo(bx - 1)), bR = padButton('Right', 'right', () => moveTo(bx + 1)), bDrop = padButton('Drop!', 'drop', drop, 'go');
+    pad.style.gridTemplateColumns = 'repeat(3, auto)';
+    pad.append(bL, bR, bDrop);
+    const legend = el('div', 'legend', `<span>${GOLD(1)} Catch me!</span><span>${'<span style="display:inline-grid;width:26px;height:26px;background:#2a9fd6;border-radius:6px">' + CURRENT(false) + '</span>'} Pushes the hook</span><span>${ROCK} Stops it</span><span>${fishSvg(FISH_COLS[0])}${BOOT} Don't hook</span>`);
+    $('stage').append(lake, pad, legend);
+    function render() {
+      cellsLayer.innerHTML = '';
+      grid.forEach((row, y) => [...row].forEach((c, x) => {
+        if (c === '.') return;
+        let node;
+        if (c === '<' || c === '>') {
+          node = el('button', 'cell cur' + (c !== orig[y][x] ? ' flipped' : '') + (hintCell && hintCell[0] === x && hintCell[1] === y ? ' hint' : ''), CURRENT(c === '<'));
+          node.type = 'button';
+          node.setAttribute('aria-label', 'Current pushing ' + (c === '<' ? 'left' : 'right') + (c !== orig[y][x] ? ', flipped' : '') + '. Tap to flip');
+          node.addEventListener('click', () => flip(x, y));
+        } else node = el('div', 'cell', c === 'G' ? GOLD(x < W / 2 ? 1 : -1) : c === 'f' ? fishSvg(FISH_COLS[(x + y) % FISH_COLS.length], x % 2 ? 1 : -1) : c === 'b' ? BOOT : ROCK);
+        place(node, x, y + 1); cellsLayer.appendChild(node);
+      }));
+      place(boat, bx, 0);
+      lake.querySelectorAll('.skybtn').forEach((s, x) => s.classList.toggle('hint', x === hintCol));
+      lake.querySelectorAll('.skybtn.hint').forEach(s => { s.style.outline = '4px solid #ffc93c'; s.style.outlineOffset = '-4px'; s.style.borderRadius = '10px'; });
+      lake.querySelectorAll('.skybtn:not(.hint)').forEach(s => { s.style.outline = ''; });
+      if (shown) draw([[bx + .5, .62], ...shown.map(([x, y]) => [x + .5, y + 1.5])]); else draw(null);
+      flipChip.innerHTML = `<span>Flips: ${flipsUsed()} of ${K}</span>`;
+      triesChip.innerHTML = `<span>Misses: ${fails}</span>`;
+      [bL, bR, bDrop].forEach(b => b.disabled = busy || done);
+      bL.disabled ||= bx === 0; bR.disabled ||= bx === W - 1;
+    }
+    function moveTo(x) {
+      if (busy || done || x < 0 || x >= W || x === bx) return;
+      bx = x; shown = null; hintCol = -1; beep(440, .05); setMsg(''); render();
+    }
+    function flip(x, y) {
+      if (busy || done) return;
+      if (!K) { setMsg('In this pond you can\'t flip currents. Just pick where the boat stops!', '', true); return; }
+      const isFlipped = grid[y][x] !== orig[y][x];
+      if (!isFlipped && flipsUsed() >= K) { setMsg('You can only flip ' + K + '. Tap a yellow one to put it back.', 'bad', true); beep(160, .15); return; }
+      const row = grid[y].split(''); row[x] = row[x] === '<' ? '>' : '<'; grid[y] = row.join('');
+      shown = null; hintCell = null; beep(isFlipped ? 420 : 620, .07); setMsg(''); render();
+    }
+    function drop() {
+      if (busy || done) return;
+      busy = true; hintCell = null; hintCol = -1; splash(); setMsg('');
+      const tr = cTrace(grid, bx);
+      const path = tr.path.filter(p => p[1] >= 0);
+      let k = 0; shown = [];
+      render();
+      const step = () => {
+        if (k < path.length) { shown = path.slice(0, ++k); render(); beep(320 + (k % 4) * 40, .04, 'sine', .05); timer = setTimeout(step, 230); return; }
+        finish(tr.end);
+      };
+      timer = setTimeout(step, 150);
+    }
+    function finish(end) {
+      busy = false;
+      if (end === 'gold') {
+        done = true; render(); tune([660, 880, 1100], 90);
+        let stars = fails === 0 ? 3 : fails === 1 ? 2 : 1;
+        if (hinted) stars = Math.min(2, stars);
+        setTimeout(() => win(stars, 'Great catch!', fails ? 'You got it after ' + fails + (fails === 1 ? ' miss.' : ' misses.') + ' Can you get one first time?' : 'First try! You worked out the whole path in your head.'), 600);
+        return;
+      }
+      fails++; beep(150, .3, 'sawtooth', .05); render();
+      const why = { fish: 'Oops! A little fish grabbed the hook.', boot: 'You fished up an old boot!', snag: 'The hook got stuck on a rock.', loop: 'The currents spun the hook round and round!', bottom: 'The hook sank to the bottom with nothing.' }[end];
+      setMsg(why + ' Follow the line to see where it went.', 'bad', true);
+    }
+    function hint() {
+      if (busy || done) return;
+      hinted = true; shown = null;
+      let best = null;
+      for (const s of C.sols) {
+        const target = cFlip(orig, s.flips), diff = [];
+        target.forEach((row, y) => { for (let x = 0; x < W; x++) if (row[x] !== grid[y][x]) diff.push([x, y]); });
+        const cost = diff.length + (s.x !== bx ? 1 : 0);
+        if (!best || cost < best.cost) best = { cost, diff, x: s.x };
+      }
+      if (best.diff.length) {
+        hintCell = best.diff[0];
+        const [x, y] = hintCell;
+        setMsg((grid[y][x] !== orig[y][x] ? 'Put the glowing current back the way it was.' : 'Try flipping the glowing current.') + ' Hints make the most stars 2.', '', true);
+      } else if (best.x !== bx) { hintCol = best.x; setMsg('The currents are right! Stop the boat above the glowing spot.', '', true); }
+      else setMsg('Everything is set. Drop the hook!', '', true);
+      render();
+    }
+    const onKey = e => { if (e.key === 'ArrowLeft') moveTo(bx - 1); else if (e.key === 'ArrowRight') moveTo(bx + 1); else if (e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); drop(); } };
+    addEventListener('keydown', onKey);
+    cleanup = () => { clearTimeout(timer); removeEventListener('keydown', onKey); };
+    action('Hint', hint, 'alt');
+    if (K) action('Undo flips', () => { if (busy || done) return; grid = orig.slice(); shown = null; hintCell = null; beep(300, .08); setMsg(''); render(); }, 'alt');
+    render();
+  }
+
+  // ---------- go ----------
+  window.__pp = { makeDrop, makeMarket, makeCurrents, dSolve, dDrop, dPos, cTrace, cFlip, mSolutions, startLevel, AREAS, get save() { return save; } };
+  showMap();
+  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}));
+
+})();
+</script>
+</body>
+</html>

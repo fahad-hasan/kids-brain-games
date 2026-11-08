@@ -266,6 +266,22 @@ const GAMES = [
       return { played: levels > 0, stars, levels, endless, text: `${stars} / 60 stars · ${levels} of 20 levels` + (endless ? ` · ${endless} endless` : '') };
     },
     board: [['Clue stars', st => st.stars], ['Clue endless', st => st.endless]]
+  },
+  {
+    slug: 'puzzle-pond',
+    title: 'Puzzle Pond',
+    blurb: 'A fishing game where every catch is a puzzle: time the perfect hook drop, weigh fish for hungry cats, and flip currents to steer the hook.',
+    skills: ['Predicting', 'Maths', 'Planning ahead'],
+    accent: '#ffc93c', accentDark: '#0b4f6c',
+    stats: id => {
+      const save = KBG.get('puzzlepond', {}, id);
+      const areas = ['drop', 'market', 'currents'];
+      const stars = areas.reduce((t, a) => t + (save[a] || []).reduce((s, v) => s + (v || 0), 0), 0);
+      const levels = areas.reduce((t, a) => t + (save[a] || []).filter(Boolean).length, 0);
+      const endless = Object.values(save.endless || {}).reduce((t, v) => t + v, 0);
+      return { played: levels > 0, stars, levels, endless, text: `${stars} / 90 stars · ${levels} of 30 levels` + (endless ? ` · ${endless} endless` : '') };
+    },
+    board: [['Pond stars', st => st.stars], ['Pond endless', st => st.endless]]
   }
 ];
 

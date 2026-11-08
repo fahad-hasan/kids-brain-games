@@ -1,6 +1,6 @@
 // Kids Brain Games service worker: caches every game so the whole collection plays offline.
 // When you add a game or change any file: add new files to FILES and bump VERSION.
-const VERSION = 'v11';
+const VERSION = 'v12';
 const CACHE = 'kids-brain-games-' + VERSION;
 const FILES = [
   './',
@@ -32,7 +32,11 @@ const FILES = [
   './thumbs/clue-club.jpg',
   './clue-club/',
   './clue-club/index.html',
-  './clue-club/icon.png'
+  './clue-club/icon.png',
+  './thumbs/puzzle-pond.jpg',
+  './puzzle-pond/',
+  './puzzle-pond/index.html',
+  './puzzle-pond/icon.png'
 ];
 
 self.addEventListener('install', e => {

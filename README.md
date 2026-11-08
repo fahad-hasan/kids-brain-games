@@ -14,6 +14,7 @@ Live: https://fahad-hasan.github.io/kids-brain-games/
 | `brickville/` | Brickville | Obby Tower (sequencing and timing), Escape Rooms (deduction, number patterns, logic), Tycoon Town (money maths, planning ahead), Colour Switch (timing, thinking steps ahead), Castle Defence (spatial strategy) |
 | `flip-find/` | Flip & Find | Memory (4×4 pairs; Easy peek, Normal, Tricky look-alike colours) |
 | `clue-club/` | Clue Club | Rule Detective (test ideas to find a hidden rule), Who Did It? (weigh evidence, ignore unreliable witnesses); every puzzle generated fresh, with a per-player list of seen puzzles so nothing repeats |
+| `puzzle-pond/` | Puzzle Pond | Gold Fish Drop (predicting moving fish, timing), Fish Market (exact weights, sharing equally), Current Maze (cause and effect, steering by flipping currents); every pond generated fresh with no repeats |
 
 ## Players and scores
 
